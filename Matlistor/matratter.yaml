@@ -1,0 +1,188 @@
+# Maträtter med metadata
+# taggar: köttfärs, nöt, fläsk, fågel, fisk, vegetarisk, korv, lamm
+# dagar: vardag (mån-tor), helg (fre-sön), båda
+
+# --- VARDAGSRÄTTER ---
+
+Spagetti & Köttfärssås:
+  dagar: vardag
+  taggar: [köttfärs, kött, pasta]
+
+Köttbullar & Mos:
+  dagar: vardag
+  taggar: [köttfärs, kött, potatis]
+
+Carbonara:
+  dagar: vardag
+  taggar: [pasta, kött, bacon]
+
+Fisk:
+  dagar: vardag
+  taggar: [fisk]
+
+Makaronipudding:
+  dagar: vardag
+  taggar: [kött, korv]
+
+Isterband & Stuvad Potatis:
+  dagar: vardag
+  taggar: [kött, potatis]
+
+Falukorv & Stuvade Makaroner:
+  dagar: vardag
+  taggar: [kött, korv, pasta]
+
+Skav & Mos:
+  dagar: vardag
+  taggar: [potatis, kött]
+
+Pasta & Skinksås:
+  dagar: vardag
+  taggar: [kött, pasta]
+
+Plåtmat:
+  dagar: vardag
+  taggar: [kött, potatis]  # justera vid behov
+
+Currykyckling & Ris:
+  dagar: vardag
+  taggar: [fågel, ris]
+
+Korvstroganoff & Ris:
+  dagar: vardag
+  taggar: [ris, korv]
+
+Pytt i Panna:
+  dagar: vardag
+  taggar: [korv, potatis]
+
+Makaroner & Korv:
+  dagar: vardag
+  taggar: [korv, pasta]
+
+Stekskivor:
+  dagar: vardag
+  taggar: [kött, potatis]
+
+Kyckling & Klyftpotatis:
+  dagar: vardag
+  taggar: [fågel, potatis]
+
+Morotspasta:
+  dagar: vardag
+  taggar: [vegetarisk, pasta]
+
+Pasta & Pesto:
+  dagar: vardag
+  taggar: [vegetarisk, pasta]
+
+Kycklingryta:
+  dagar: båda
+  taggar: [fågel, ris, potatis]
+
+Köttgryta:
+  dagar: båda
+  taggar: [kött, potatis, ris]
+
+Gulash:
+  dagar: vardag
+  taggar: [kött, potatis]
+
+Nudelwok:
+  dagar: vardag
+  taggar: [vegetarisk, kött, nudlar]  # justera vid behov
+
+Blodpudding:
+  dagar: vardag
+  taggar: [kött] # endast om inte pappa är hemma
+
+Pannkaka:
+  dagar: vardag
+  taggar: [vegetarisk]
+  
+Böngryta:
+  dagar: vardag
+  taggar: [vegetarisk, potatis, ris]
+  
+Falafel:
+  dagar: vardag
+  taggar: [vegetarisk]
+  
+Paj:
+  dagar: vardag
+  taggar: [kött, vegetarisk, köttfärs]
+  
+Lasagne:
+  dagar: vardag
+  taggar: [kött, köttfärs]
+  
+Tjockpannkaka:
+  dagar: vardag
+  taggar: [kött, bacon]
+  
+Falukorv i ugn:
+  dagar: vardag
+  taggar: [kött, potatis]
+
+Pasta med tomatsås:
+  dagar: vardag
+  taggar: [vegetarisk, pasta]
+
+# --- HELGRÄTTER ---
+
+Hamburgare:
+  dagar: helg
+  taggar: [kött]
+
+Tacos:
+  dagar: helg
+  taggar: [köttfärs, kött]
+  låst_dag: fredag  # alltid fredag om man vill ha tacofredag
+
+Pizza:
+  dagar: helg
+  taggar: [kött]  # justera vid behov (kan vara vegetarisk)
+
+Kebab:
+  dagar: helg
+  taggar: [kött, potatis]
+
+Söndagsstek:
+  dagar: helg
+  taggar: [kött, potatis]
+
+Pulled Pork:
+  dagar: helg
+  taggar: [kött]
+
+Tagliata:
+  dagar: helg
+  taggar: [kött, potatis]
+  
+Grillat:
+  dagar: helg
+  taggar: [kött, potatis, sommar]
+
+Svamppasta:
+  dagar: båda
+  taggar: [kött, pasta]
+  
+Grekiska Biffar:
+  dagar: båda
+  taggar: [kött, potatis, köttfärs]
+
+Palak Paneer:
+  dagar: båda
+  taggar: [vegetarisk]
+  
+Wrap:
+  dagar: båda
+  taggar: [kött, vegetarisk]
+  
+Pokebowl:
+  dagar: båda
+  taggar: [fisk, kött, vegetarisk]
+  
+Tjälaknul:
+  dagar: båda
+  taggar: [kött, potatis]

@@ -1,0 +1,3 @@
+generera_vecka:
+  name: Generera veckans middagar
+  description: Slumpar veckans middagar med hänsyn till låsta dagar och regler.

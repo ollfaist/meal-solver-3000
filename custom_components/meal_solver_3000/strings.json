@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Meal Solver 3000",
+        "description": "Aktivera Meal Solver 3000 för att hantera veckans middagar."
+      }
+    },
+    "abort": {
+      "already_configured": "Meal Solver 3000 är redan konfigurerad."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Regler",
+        "data": {
+          "max_kottfars": "Max köttfärsrätter per vecka",
+          "max_fisk": "Max fiskrätter per vecka",
+          "min_vegetarisk": "Min vegetariska rätter per vecka",
+          "repeat_intervall": "Repeat-intervall (dagar)"
+        },
+        "data_description": {
+          "max_kottfars": "Hur många gånger köttfärs får förekomma (1–7)",
+          "max_fisk": "Hur många gånger fisk får förekomma (0–7)",
+          "min_vegetarisk": "Minsta antal vegetariska rätter (0–7)",
+          "repeat_intervall": "Antal dagar innan samma rätt får slumpas igen (0 = av)"
+        }
+      }
+    }
+  }
+}
