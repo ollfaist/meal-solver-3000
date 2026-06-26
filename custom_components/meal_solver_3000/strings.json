@@ -15,15 +15,15 @@
       "init": {
         "title": "Regler",
         "data": {
-          "max_kottfars": "Max köttfärsrätter per vecka",
-          "max_fisk": "Max fiskrätter per vecka",
-          "min_vegetarisk": "Min vegetariska rätter per vecka",
+          "max_regler":      "Max per vecka",
+          "min_regler":      "Min per vecka",
+          "ej_konsekutiv":   "Ej konsekutiva sidorätter",
           "repeat_intervall": "Repeat-intervall (dagar)"
         },
         "data_description": {
-          "max_kottfars": "Hur många gånger köttfärs får förekomma (1–7)",
-          "max_fisk": "Hur många gånger fisk får förekomma (0–7)",
-          "min_vegetarisk": "Minsta antal vegetariska rätter (0–7)",
+          "max_regler":      "Format: tagg:antal, tagg:antal  —  t.ex. köttfärs:2, fisk:1, lamm:1",
+          "min_regler":      "Format: tagg:antal, tagg:antal  —  t.ex. vegetarisk:1",
+          "ej_konsekutiv":   "Kommaseparerad lista  —  t.ex. potatis, ris, pasta, nudlar",
           "repeat_intervall": "Antal dagar innan samma rätt får slumpas igen (0 = av)"
         }
       }

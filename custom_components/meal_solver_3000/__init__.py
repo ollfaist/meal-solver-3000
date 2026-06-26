@@ -28,11 +28,32 @@ DAG_ENTITY = {
 }
 
 _OPTION_DEFAULTS = {
-    "max_kottfars":    2,
-    "max_fisk":        1,
-    "min_vegetarisk":  1,
+    "max_regler":      "köttfärs:2, fisk:1",
+    "min_regler":      "vegetarisk:1",
+    "ej_konsekutiv":   "potatis, ris, pasta, nudlar",
     "repeat_intervall": 14,
 }
+
+
+def _parse_tagg_regler(text: str) -> dict:
+    """Parsar 'köttfärs:2, fisk:1' till {'köttfärs': 2, 'fisk': 1}."""
+    result = {}
+    for del_ in text.split(","):
+        del_ = del_.strip()
+        if not del_:
+            continue
+        delar = del_.split(":", 1)
+        if len(delar) == 2:
+            try:
+                result[delar[0].strip()] = int(delar[1].strip())
+            except ValueError:
+                pass
+    return result
+
+
+def _parse_lista(text: str) -> list:
+    """Parsar 'potatis, ris, pasta' till ['potatis', 'ris', 'pasta']."""
+    return [x.strip() for x in text.split(",") if x.strip()]
 
 
 # ── Hjälp: slå samman regler.yaml med config-entry options ───────────────────
@@ -45,24 +66,31 @@ def _build_regler(opts: dict) -> dict:
     except Exception:
         yaml_regler = {}
 
+    if "max_regler" in opts:
+        max_per_vecka = _parse_tagg_regler(opts["max_regler"])
+    else:
+        max_per_vecka = yaml_regler.get("max_per_vecka",
+                        _parse_tagg_regler(_OPTION_DEFAULTS["max_regler"]))
+
+    if "min_regler" in opts:
+        min_per_vecka = _parse_tagg_regler(opts["min_regler"])
+    else:
+        min_per_vecka = yaml_regler.get("min_per_vecka",
+                        _parse_tagg_regler(_OPTION_DEFAULTS["min_regler"]))
+
+    if "ej_konsekutiv" in opts:
+        ej_konsekutiv = _parse_lista(opts["ej_konsekutiv"])
+    else:
+        ej_konsekutiv = yaml_regler.get("ej_konsekutiv",
+                        _parse_lista(_OPTION_DEFAULTS["ej_konsekutiv"]))
+
     return {
-        "max_per_vecka": {
-            "köttfärs": opts.get("max_kottfars",
-                         yaml_regler.get("max_per_vecka", {}).get("köttfärs",
-                         _OPTION_DEFAULTS["max_kottfars"])),
-            "fisk":     opts.get("max_fisk",
-                         yaml_regler.get("max_per_vecka", {}).get("fisk",
-                         _OPTION_DEFAULTS["max_fisk"])),
-        },
-        "min_per_vecka": {
-            "vegetarisk": opts.get("min_vegetarisk",
-                           yaml_regler.get("min_per_vecka", {}).get("vegetarisk",
-                           _OPTION_DEFAULTS["min_vegetarisk"])),
-        },
+        "max_per_vecka": max_per_vecka,
+        "min_per_vecka": min_per_vecka,
+        "ej_konsekutiv": ej_konsekutiv,
         "repeat_intervall_dagar": opts.get("repeat_intervall",
                                     yaml_regler.get("repeat_intervall_dagar",
                                     _OPTION_DEFAULTS["repeat_intervall"])),
-        "ej_konsekutiv": yaml_regler.get("ej_konsekutiv", ["potatis", "ris", "pasta", "nudlar"]),
         "max_forsok":    yaml_regler.get("max_forsok", 1000),
     }
 
