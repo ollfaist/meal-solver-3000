@@ -121,6 +121,16 @@ class MealSolverCard extends HTMLElement {
     if (!this._hass.states['sensor.meal_solver_matlista'])
       return `<div class="empty">Laddar matlistan…</div>`;
 
+    const cnt = { vardag:0, helg:0, båda:0 };
+    for (const d of Object.values(matratter)) cnt[d.dagar] = (cnt[d.dagar]||0) + 1;
+    const total = Object.keys(matratter).length;
+    const stats = `<div class="stats-row">
+      <span class="stat-pill stat-total">${total} totalt</span>
+      <span class="stat-pill stat-vardag">${cnt.vardag||0} vardag</span>
+      <span class="stat-pill stat-helg">${cnt.helg||0} helg</span>
+      <span class="stat-pill stat-bada">${cnt.båda||0} båda</span>
+    </div>`;
+
     const katOpts = ['vardag','helg','båda'].map(k=>
       `<option value="${k}"${this._kat===k?' selected':''}>${k}</option>`).join('');
 
@@ -136,6 +146,7 @@ class MealSolverCard extends HTMLElement {
         </select></div>`;
     }
     return `<div class="wrap">
+      ${stats}
       <div class="field"><label>Kategori</label>
         <select id="kat-select" class="sel">
           <option value="">— välj kategori —</option>${katOpts}
@@ -433,6 +444,12 @@ class MealSolverCard extends HTMLElement {
     label{font-size:11px;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.4px}
     .inp,.sel{padding:8px 10px;border:0.5px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:13px;width:100%;box-sizing:border-box}
     .inp:focus,.sel:focus{outline:none;border-color:var(--primary-color,#03a9f4)}
+    .stats-row{display:flex;gap:6px;flex-wrap:wrap}
+    .stat-pill{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500}
+    .stat-total{background:var(--secondary-background-color);color:var(--primary-text-color)}
+    .stat-vardag{background:#E6F1FB;color:#185FA5}
+    .stat-helg{background:#E1F5EE;color:#0F6E56}
+    .stat-bada{background:#F3EEFF;color:#5B2DAB}
     .btn-ny{align-self:flex-start;font-size:12px;padding:6px 12px;border:0.5px solid var(--primary-color,#03a9f4);border-radius:8px;background:transparent;color:var(--primary-color,#03a9f4);cursor:pointer}
     .edit-head{display:flex;align-items:center;justify-content:space-between}
     .edit-head span{font-size:14px;font-weight:500;color:var(--primary-text-color)}
