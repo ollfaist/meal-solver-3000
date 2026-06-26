@@ -12,6 +12,10 @@ BASE = Path("/config/Matlistor")
 MATRATTER_FILE = BASE / "matratter.yaml"
 REGLER_FILE    = BASE / "regler.yaml"
 HISTORIK_FILE  = BASE / "historik.json"
+TAGGAR_FILE    = BASE / "taggar.json"
+
+_STD_TAGGAR = ["köttfärs","nöt","fläsk","fågel","fisk","vegetarisk","korv","lamm",
+               "potatis","ris","pasta","nudlar"]
 
 VARDAG_DAGAR = ["måndag", "tisdag", "onsdag", "torsdag"]
 HELG_DAGAR   = ["fredag", "lördag", "söndag"]
@@ -45,12 +49,39 @@ def _save_matratter(matratter: dict):
     with open(MATRATTER_FILE, "w", encoding="utf-8") as f:
         yaml.dump(matratter, f, allow_unicode=True, default_flow_style=False, sort_keys=True)
 
+def _load_taggar() -> list:
+    if not TAGGAR_FILE.exists():
+        # Seed från standardlista + vad som redan finns i matratter
+        try:
+            m = _load_matratter()
+            extra = {t for d in m.values() for t in d.get("taggar", [])}
+        except Exception:
+            extra = set()
+        taggar = sorted(set(_STD_TAGGAR) | extra)
+        _save_taggar(taggar)
+        return taggar
+    with open(TAGGAR_FILE, encoding="utf-8") as f:
+        return json.load(f)
+
+def _save_taggar(taggar: list):
+    with open(TAGGAR_FILE, "w", encoding="utf-8") as f:
+        json.dump(sorted(set(taggar)), f, ensure_ascii=False, indent=2)
+
+def _add_taggar_to_registry(new_tags: list):
+    existing = set(_load_taggar())
+    combined = existing | set(new_tags)
+    if combined != existing:
+        _save_taggar(list(combined))
+
 async def _refresh_sensor(hass):
-    matratter = await hass.async_add_executor_job(_load_matratter)
+    def _load():
+        return _load_matratter(), _load_taggar()
+    matratter, known_tags = await hass.async_add_executor_job(_load)
     hass.states.async_set(
         "sensor.meal_solver_matlista",
         len(matratter),
-        {"matratter": matratter, "friendly_name": "Meal Solver Matlista"},
+        {"matratter": matratter, "known_tags": known_tags,
+         "friendly_name": "Meal Solver Matlista"},
     )
 
 
@@ -262,6 +293,7 @@ async def async_setup(hass, config):
                 entry["låst_dag"] = last_dag
             m[namn] = entry
             _save_matratter(m)
+            _add_taggar_to_registry(taggar)
         await hass.async_add_executor_job(_w)
         await _refresh_sensor(hass)
 
@@ -282,6 +314,7 @@ async def async_setup(hass, config):
                 entry["låst_dag"] = last_dag
             m[nytt] = entry
             _save_matratter(m)
+            _add_taggar_to_registry(taggar)
         await hass.async_add_executor_job(_w)
         await _refresh_sensor(hass)
 
@@ -298,6 +331,14 @@ async def async_setup(hass, config):
 
     # ── Tagg-tjänster ─────────────────────────────────────────────
 
+    async def handle_skapa_tagg(call):
+        namn = call.data.get("namn", "").strip().lower()
+        if not namn:
+            return
+        await hass.async_add_executor_job(_add_taggar_to_registry, [namn])
+        await _refresh_sensor(hass)
+        _LOGGER.info("Meal Solver 3000: skapade tagg '%s'", namn)
+
     async def handle_byt_namn_pa_tagg(call):
         gammalt = call.data.get("gammalt_namn", "").strip()
         nytt    = call.data.get("nytt_namn", "").strip()
@@ -306,9 +347,10 @@ async def async_setup(hass, config):
         def _w():
             m = _load_matratter()
             for data in m.values():
-                tl = data.get("taggar", [])
-                data["taggar"] = [nytt if t == gammalt else t for t in tl]
+                data["taggar"] = [nytt if t == gammalt else t for t in data.get("taggar", [])]
             _save_matratter(m)
+            tl = _load_taggar()
+            _save_taggar([nytt if t == gammalt else t for t in tl])
         await hass.async_add_executor_job(_w)
         await _refresh_sensor(hass)
         _LOGGER.info("Meal Solver 3000: bytte tagg '%s'→'%s'", gammalt, nytt)
@@ -322,6 +364,7 @@ async def async_setup(hass, config):
             for data in m.values():
                 data["taggar"] = [t for t in data.get("taggar", []) if t != namn]
             _save_matratter(m)
+            _save_taggar([t for t in _load_taggar() if t != namn])
         await hass.async_add_executor_job(_w)
         await _refresh_sensor(hass)
         _LOGGER.info("Meal Solver 3000: tog bort tagg '%s'", namn)
@@ -332,6 +375,7 @@ async def async_setup(hass, config):
     hass.services.async_register(DOMAIN, "lagg_till_ratt",    handle_lagg_till_ratt)
     hass.services.async_register(DOMAIN, "uppdatera_ratt",    handle_uppdatera_ratt)
     hass.services.async_register(DOMAIN, "ta_bort_ratt",      handle_ta_bort_ratt)
+    hass.services.async_register(DOMAIN, "skapa_tagg",        handle_skapa_tagg)
     hass.services.async_register(DOMAIN, "byt_namn_pa_tagg",  handle_byt_namn_pa_tagg)
     hass.services.async_register(DOMAIN, "ta_bort_tagg",      handle_ta_bort_tagg)
 

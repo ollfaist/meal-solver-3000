@@ -42,6 +42,10 @@ class MealSolverCard extends HTMLElement {
   }
 
   _allaTagger() {
+    const s = this._hass.states['sensor.meal_solver_matlista'];
+    const known = s ? (s.attributes.known_tags || []) : [];
+    // fallback om sensor inte har known_tags ännu
+    if (known.length) return known;
     const std = ['köttfärs','nöt','fläsk','fågel','fisk','vegetarisk','korv','lamm',
                  'potatis','ris','pasta','nudlar'];
     const extra = new Set();
@@ -185,19 +189,31 @@ class MealSolverCard extends HTMLElement {
     const cnt = this._taggRakning();
     const tags = Object.entries(cnt).sort(([a],[b])=>a.localeCompare(b,'sv'));
 
-    if (!tags.length) return `<div class="empty">Inga taggar ännu — lägg till maträtter med taggar först.</div>`;
-
-    const rows = tags.map(([tag,n])=>`
-      <div class="tag-item">
-        <span class="tag-pill">${tag}</span>
-        <span class="tag-cnt">${n} rätt${n!==1?'er':''}</span>
+    // Visa alla kända taggar (inkl. de som inte används)
+    const allKnown = this._allaTagger();
+    const allRows = allKnown.map(tag => {
+      const n = cnt[tag] || 0;
+      return `<div class="tag-item">
+        <span class="tag-pill${n===0?' tag-pill-unused':''}">${tag}</span>
+        <span class="tag-cnt">${n===0?'används ej':`${n} rätt${n!==1?'er':''}`}</span>
         <div class="actions">
           <button class="icon-btn edit-tag-btn" data-tag="${tag}">${this._iEdit()}</button>
           <button class="icon-btn del-tag-btn txt-btn" data-tag="${tag}">✕</button>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
-    return `<div class="wrap">${rows}</div>`;
+    return `<div class="wrap">
+      ${allRows}
+      <div class="hdiv"></div>
+      <div class="field">
+        <label>Ny tagg</label>
+        <div class="tag-row">
+          <input class="inp tag-inp" id="ny-tagg-inp" type="text" placeholder="Skriv taggnamn…" autocomplete="off">
+          <button class="btn-add" id="ny-tagg-btn">+</button>
+        </div>
+      </div>
+    </div>`;
   }
 
   _tagEditFormHTML() {
@@ -344,6 +360,22 @@ class MealSolverCard extends HTMLElement {
       const tag=e.currentTarget.dataset.tag;
       this._hass.callService('meal_solver_3000','ta_bort_tagg',{namn:tag});
     }));
+
+    // Ny tagg
+    const addNyTagg = () => {
+      const inp = sr.getElementById('ny-tagg-inp');
+      const namn = inp.value.trim().toLowerCase();
+      if (!namn) return;
+      this._hass.callService('meal_solver_3000','skapa_tagg',{namn});
+      inp.value = '';
+    };
+    sr.getElementById('ny-tagg-btn')?.addEventListener('click', addNyTagg);
+    sr.getElementById('ny-tagg-inp')?.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter') { ev.preventDefault(); addNyTagg(); }
+    });
+    // Blockera re-render medan inputfältet är aktivt
+    sr.getElementById('ny-tagg-inp')?.addEventListener('focus', ()=>{ this._listaActive=true; });
+    sr.getElementById('ny-tagg-inp')?.addEventListener('blur',  ()=>{ this._listaActive=false; });
   }
 
   // ── Veckoplan inline edit ─────────────────────────────────────
@@ -421,6 +453,7 @@ class MealSolverCard extends HTMLElement {
     .tag-item:last-child{border-bottom:none}
     .tag-pill{font-size:12px;padding:3px 10px;border-radius:20px;background:var(--secondary-background-color);border:0.5px solid var(--divider-color);color:var(--primary-text-color)}
     .tag-cnt{flex:1;font-size:12px;color:var(--secondary-text-color)}
+    .tag-pill-unused{opacity:.45}
   </style>`; }
 }
 
