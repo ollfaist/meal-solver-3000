@@ -28,15 +28,36 @@ DAG_ENTITY = {
 }
 
 _OPTION_DEFAULTS = {
-    "max_regler":      "köttfärs:2, fisk:1",
-    "min_regler":      "vegetarisk:1",
-    "ej_konsekutiv":   "potatis, ris, pasta, nudlar",
+    "max_regler":       "köttfärs:2, fisk:1",
+    "min_regler":       "vegetarisk:1",
+    "ej_konsekutiv":    "potatis, ris, pasta, nudlar",
     "repeat_intervall": 14,
 }
 
 
+# ── Matliste-I/O ──────────────────────────────────────────────────────────────
+
+def _load_matratter() -> dict:
+    with open(MATRATTER_FILE, encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+
+def _save_matratter(matratter: dict):
+    with open(MATRATTER_FILE, "w", encoding="utf-8") as f:
+        yaml.dump(matratter, f, allow_unicode=True, default_flow_style=False,
+                  sort_keys=True)
+
+async def _refresh_sensor(hass):
+    matratter = await hass.async_add_executor_job(_load_matratter)
+    hass.states.async_set(
+        "sensor.meal_solver_matlista",
+        len(matratter),
+        {"matratter": matratter, "friendly_name": "Meal Solver Matlista"},
+    )
+
+
+# ── Regelparser ───────────────────────────────────────────────────────────────
+
 def _parse_tagg_regler(text: str) -> dict:
-    """Parsar 'köttfärs:2, fisk:1' till {'köttfärs': 2, 'fisk': 1}."""
     result = {}
     for del_ in text.split(","):
         del_ = del_.strip()
@@ -50,16 +71,10 @@ def _parse_tagg_regler(text: str) -> dict:
                 pass
     return result
 
-
 def _parse_lista(text: str) -> list:
-    """Parsar 'potatis, ris, pasta' till ['potatis', 'ris', 'pasta']."""
     return [x.strip() for x in text.split(",") if x.strip()]
 
-
-# ── Hjälp: slå samman regler.yaml med config-entry options ───────────────────
-
 def _build_regler(opts: dict) -> dict:
-    """Bygg en regeldict. opts från config entry har prioritet, yaml är fallback."""
     try:
         with open(REGLER_FILE, encoding="utf-8") as f:
             yaml_regler = yaml.safe_load(f) or {}
@@ -91,11 +106,11 @@ def _build_regler(opts: dict) -> dict:
         "repeat_intervall_dagar": opts.get("repeat_intervall",
                                     yaml_regler.get("repeat_intervall_dagar",
                                     _OPTION_DEFAULTS["repeat_intervall"])),
-        "max_forsok":    yaml_regler.get("max_forsok", 1000),
+        "max_forsok": yaml_regler.get("max_forsok", 1000),
     }
 
 
-# ── Solver-logik ──────────────────────────────────────────────────────────────
+# ── Solver ────────────────────────────────────────────────────────────────────
 
 def _load_historik():
     if not HISTORIK_FILE.exists():
@@ -167,9 +182,7 @@ def _min_ok(plan, matratter, regler):
     return True
 
 def _solve(lasta_rattter, regler):
-    with open(MATRATTER_FILE, encoding="utf-8") as f:
-        matratter = yaml.safe_load(f)
-
+    matratter = _load_matratter()
     historik   = _load_historik()
     intervall  = regler.get("repeat_intervall_dagar", 14)
     max_forsok = regler.get("max_forsok", 1000)
@@ -214,14 +227,13 @@ def _solve(lasta_rattter, regler):
 
 async def async_setup(hass, config):
 
+    # ── Vecka-tjänst ──────────────────────────────────────────────
+
     async def handle_generera_vecka(call):
-        # Hämta options från config entry om det finns
         entries = hass.config_entries.async_entries(DOMAIN)
         opts = entries[0].options if entries else {}
         regler = await hass.async_add_executor_job(_build_regler, opts)
-        _LOGGER.debug("Aktiva regler: %s", regler)
 
-        # Läs låsta dagar från HA-entiteter
         lasta_rattter = {}
         for dag, (text_eid, bool_eid) in DAG_ENTITY.items():
             bool_state = hass.states.get(bool_eid)
@@ -229,8 +241,6 @@ async def async_setup(hass, config):
                 text_state = hass.states.get(text_eid)
                 if text_state and text_state.state not in ("", "unknown"):
                     lasta_rattter[dag] = text_state.state
-
-        _LOGGER.debug("Låsta dagar: %s", list(lasta_rattter.keys()))
 
         plan = await hass.async_add_executor_job(_solve, lasta_rattter, regler)
 
@@ -243,26 +253,93 @@ async def async_setup(hass, config):
             await hass.services.async_call(
                 "input_text", "set_value",
                 {"entity_id": text_eid, "value": ratt},
-                blocking=True
+                blocking=True,
             )
 
         await hass.async_add_executor_job(_save_historik, plan)
-        _LOGGER.info("Meal Solver 3000: ny veckoplan genererad — %s", date.today())
+        _LOGGER.info("Meal Solver 3000: ny veckoplan — %s", date.today())
 
-    hass.services.async_register(DOMAIN, "generera_vecka", handle_generera_vecka)
+    # ── Matliste-tjänster ─────────────────────────────────────────
+
+    async def handle_lagg_till_ratt(call):
+        namn   = call.data.get("namn", "").strip()
+        dagar  = call.data.get("dagar", "vardag")
+        taggar = call.data.get("taggar", [])
+        last_dag = call.data.get("låst_dag", "")
+
+        if not namn:
+            _LOGGER.warning("lagg_till_ratt: namn saknas")
+            return
+
+        def _write():
+            m = _load_matratter()
+            entry = {"dagar": dagar, "taggar": taggar}
+            if last_dag:
+                entry["låst_dag"] = last_dag
+            m[namn] = entry
+            _save_matratter(m)
+
+        await hass.async_add_executor_job(_write)
+        await _refresh_sensor(hass)
+        _LOGGER.info("Meal Solver 3000: lade till '%s'", namn)
+
+    async def handle_uppdatera_ratt(call):
+        gammalt_namn = call.data.get("gammalt_namn", "").strip()
+        nytt_namn    = call.data.get("namn", "").strip()
+        dagar        = call.data.get("dagar", "vardag")
+        taggar       = call.data.get("taggar", [])
+        last_dag     = call.data.get("låst_dag", "")
+
+        if not nytt_namn:
+            _LOGGER.warning("uppdatera_ratt: namn saknas")
+            return
+
+        def _write():
+            m = _load_matratter()
+            if gammalt_namn and gammalt_namn in m:
+                del m[gammalt_namn]
+            entry = {"dagar": dagar, "taggar": taggar}
+            if last_dag:
+                entry["låst_dag"] = last_dag
+            m[nytt_namn] = entry
+            _save_matratter(m)
+
+        await hass.async_add_executor_job(_write)
+        await _refresh_sensor(hass)
+        _LOGGER.info("Meal Solver 3000: uppdaterade '%s'→'%s'", gammalt_namn, nytt_namn)
+
+    async def handle_ta_bort_ratt(call):
+        namn = call.data.get("namn", "").strip()
+        if not namn:
+            return
+
+        def _write():
+            m = _load_matratter()
+            m.pop(namn, None)
+            _save_matratter(m)
+
+        await hass.async_add_executor_job(_write)
+        await _refresh_sensor(hass)
+        _LOGGER.info("Meal Solver 3000: tog bort '%s'", namn)
+
+    # ── Registrera ────────────────────────────────────────────────
+
+    hass.services.async_register(DOMAIN, "generera_vecka",  handle_generera_vecka)
+    hass.services.async_register(DOMAIN, "lagg_till_ratt",  handle_lagg_till_ratt)
+    hass.services.async_register(DOMAIN, "uppdatera_ratt",  handle_uppdatera_ratt)
+    hass.services.async_register(DOMAIN, "ta_bort_ratt",    handle_ta_bort_ratt)
+
+    await _refresh_sensor(hass)
     _LOGGER.info("Meal Solver 3000: redo")
     return True
 
 
 async def async_setup_entry(hass, entry):
-    """Kallas när config entry skapas/laddas — återladdas vid optionsändring."""
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     return True
 
-
 async def async_unload_entry(hass, entry):
     return True
-
 
 async def _async_reload_entry(hass, entry):
     await hass.config_entries.async_reload(entry.entry_id)

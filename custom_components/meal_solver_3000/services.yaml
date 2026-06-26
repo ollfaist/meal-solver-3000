@@ -1,3 +1,48 @@
 generera_vecka:
   name: Generera veckans middagar
   description: Slumpar veckans middagar med hänsyn till låsta dagar och regler.
+
+lagg_till_ratt:
+  name: Lägg till maträtt
+  description: Lägger till en ny maträtt i matlistan.
+  fields:
+    namn:
+      description: Rättens namn
+      example: "Lax med potatis"
+    dagar:
+      description: "vardag, helg eller båda"
+      example: "vardag"
+    taggar:
+      description: Lista med taggar
+      example: ["fisk", "potatis"]
+    låst_dag:
+      description: Dag rätten alltid serveras (valfritt)
+      example: "fredag"
+
+uppdatera_ratt:
+  name: Uppdatera maträtt
+  description: Ändrar en befintlig maträtt i matlistan.
+  fields:
+    gammalt_namn:
+      description: Nuvarande namn på rätten
+      example: "Lax med potatis"
+    namn:
+      description: Nytt namn (samma om inget namnbyte)
+      example: "Lax med ris"
+    dagar:
+      description: "vardag, helg eller båda"
+      example: "helg"
+    taggar:
+      description: Lista med taggar
+      example: ["fisk", "ris"]
+    låst_dag:
+      description: Dag rätten alltid serveras (valfritt)
+      example: ""
+
+ta_bort_ratt:
+  name: Ta bort maträtt
+  description: Tar bort en maträtt från matlistan.
+  fields:
+    namn:
+      description: Rättens namn
+      example: "Lax med potatis"
