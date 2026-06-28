@@ -201,6 +201,15 @@ def _min_ok(plan, matratter, regler):
             return False
     return True
 
+def _krav_ok(plan, matratter):
+    """Kontrollera att rätter med 'kräver' har sin beroenderätt med i planen."""
+    plan_rattar = set(plan.values())
+    for ratt in plan_rattar:
+        krav = matratter.get(ratt, {}).get("kräver")
+        if krav and krav not in plan_rattar:
+            return False
+    return True
+
 def _solve(lasta_rattter, regler):
     matratter  = _load_matratter()
     historik   = _load_historik()
@@ -239,7 +248,7 @@ def _solve(lasta_rattter, regler):
                 break
             plan[dag] = vald
 
-        if ok and _min_ok(plan, matratter, regler):
+        if ok and _min_ok(plan, matratter, regler) and _krav_ok(plan, matratter):
             return plan
 
     return None
@@ -284,6 +293,7 @@ async def async_setup(hass, config):
         dagar    = call.data.get("dagar", "vardag")
         taggar   = call.data.get("taggar", [])
         last_dag = call.data.get("låst_dag", "")
+        krav     = call.data.get("kräver", "").strip()
         if not namn:
             return
         def _w():
@@ -291,6 +301,8 @@ async def async_setup(hass, config):
             entry = {"dagar": dagar, "taggar": taggar}
             if last_dag:
                 entry["låst_dag"] = last_dag
+            if krav:
+                entry["kräver"] = krav
             m[namn] = entry
             _save_matratter(m)
             _add_taggar_to_registry(taggar)
@@ -303,6 +315,7 @@ async def async_setup(hass, config):
         dagar    = call.data.get("dagar", "vardag")
         taggar   = call.data.get("taggar", [])
         last_dag = call.data.get("låst_dag", "")
+        krav     = call.data.get("kräver", "").strip()
         if not nytt:
             return
         def _w():
@@ -312,6 +325,8 @@ async def async_setup(hass, config):
             entry = {"dagar": dagar, "taggar": taggar}
             if last_dag:
                 entry["låst_dag"] = last_dag
+            if krav:
+                entry["kräver"] = krav
             m[nytt] = entry
             _save_matratter(m)
             _add_taggar_to_registry(taggar)

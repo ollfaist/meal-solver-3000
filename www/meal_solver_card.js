@@ -54,6 +54,15 @@ class MealSolverCard extends HTMLElement {
     return [...new Set([...std,...extra])];
   }
 
+  _kravOpts(vald) {
+    const ratter = Object.keys(this._matratter()).sort((a,b)=>a.localeCompare(b,'sv'));
+    const opts = ratter
+      .filter(n => n !== (this._editing?.namn || ''))
+      .map(n => `<option value="${n}"${vald===n?' selected':''}>${n}</option>`)
+      .join('');
+    return `<option value="">— ingen —</option>${opts}`;
+  }
+
   _taggRakning() {
     const cnt = {};
     for (const d of Object.values(this._matratter()))
@@ -184,6 +193,8 @@ class MealSolverCard extends HTMLElement {
         </div></div>
       <div class="field"><label>Låst dag</label>
         <select class="inp sel" id="edit-last">${dagOpts}</select></div>
+      <div class="field"><label>Kräver rätt samma vecka</label>
+        <select class="inp sel" id="edit-krav">${this._kravOpts(e.kräver)}</select></div>
       <div class="hdiv"></div>
       <div class="edit-foot">
         <button class="btn-spara" id="spara-btn">Spara</button>
@@ -286,12 +297,13 @@ class MealSolverCard extends HTMLElement {
       const namn=e.target.value; if(!namn) return;
       const d=this._matratter()[namn]||{};
       this._editing={gammaltNamn:namn,namn,dagar:d.dagar||'vardag',
-        taggar:new Set(d.taggar||[]),låst_dag:d.låst_dag||'',isNew:false};
+        taggar:new Set(d.taggar||[]),låst_dag:d.låst_dag||'',
+        kräver:d.kräver||'',isNew:false};
       this._render();
     });
     sr.getElementById('ny-btn')?.addEventListener('click',()=>{
       this._editing={gammaltNamn:'',namn:'',dagar:this._kat||'vardag',
-        taggar:new Set(),låst_dag:'',isNew:true};
+        taggar:new Set(),låst_dag:'',kräver:'',isNew:true};
       this._render();
     });
     if (this._editing) this._editFormEvents();
@@ -322,11 +334,12 @@ class MealSolverCard extends HTMLElement {
       const dagar=sr.querySelector('input[name="ed"]:checked')?.value||e.dagar;
       const taggar=[...e.taggar];
       const last_dag=sr.getElementById('edit-last').value;
+      const krav=sr.getElementById('edit-krav').value;
       if(!namn) return;
       const svc=e.isNew?'lagg_till_ratt':'uppdatera_ratt';
       const data=e.isNew
-        ?{namn,dagar,taggar,...(last_dag?{låst_dag:last_dag}:{})}
-        :{gammalt_namn:e.gammaltNamn,namn,dagar,taggar,...(last_dag?{låst_dag:last_dag}:{})};
+        ?{namn,dagar,taggar,...(last_dag?{låst_dag:last_dag}:{}),...(krav?{kräver:krav}:{})}
+        :{gammalt_namn:e.gammaltNamn,namn,dagar,taggar,...(last_dag?{låst_dag:last_dag}:{}),...(krav?{kräver:krav}:{})};
       this._hass.callService('meal_solver_3000',svc,data);
       this._editing=null; this._render();
     });
