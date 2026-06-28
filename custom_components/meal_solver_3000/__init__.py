@@ -271,6 +271,15 @@ async def async_setup(hass, config):
                 if ts and ts.state not in ("", "unknown"):
                     lasta_rattter[dag] = ts.state
 
+        # Spara nuvarande vecka till historik innan ny plan genereras
+        current_plan = {}
+        for dag, (text_eid, _) in DAG_ENTITY.items():
+            ts = hass.states.get(text_eid)
+            if ts and ts.state not in ("", "unknown"):
+                current_plan[dag] = ts.state
+        if current_plan:
+            await hass.async_add_executor_job(_save_historik, current_plan)
+
         plan = await hass.async_add_executor_job(_solve, lasta_rattter, regler)
         if plan is None:
             _LOGGER.error("Meal Solver 3000: kunde inte hitta giltig veckoplan")
