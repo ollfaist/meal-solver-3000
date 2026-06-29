@@ -69,6 +69,15 @@ input_boolean:
   sondag_last:
 ```
 
+## Roadmap
+
+Idéer och planerade funktioner:
+
+- [ ] **Ingredienser per maträtt** — lagra ingredienslistor i `matratter.yaml` och redigera dem via Lovelace-kortet
+- [ ] **Veckans inköpslista** — ny flik som aggregerar ingredienser för alla 7 rätter i aktuell veckoplan
+- [ ] **Receptsökning** — söka recept på nätet kopplat till en maträtt
+- [ ] **AI-receptgenerering** — generera recept via AI utifrån tillgängliga ingredienser hemma
+
 ## matratter.yaml-format
 
 ```yaml
