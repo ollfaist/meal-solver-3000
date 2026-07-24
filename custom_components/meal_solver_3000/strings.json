@@ -3,28 +3,28 @@
     "step": {
       "user": {
         "title": "Meal Solver 3000",
-        "description": "Aktivera Meal Solver 3000 för att hantera veckans middagar."
+        "description": "Enable Meal Solver 3000 to manage the week's dinners."
       }
     },
     "abort": {
-      "already_configured": "Meal Solver 3000 är redan konfigurerad."
+      "already_configured": "Meal Solver 3000 is already configured."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Regler",
+        "title": "Rules",
         "data": {
-          "max_regler":      "Max per vecka",
-          "min_regler":      "Min per vecka",
-          "ej_konsekutiv":   "Ej konsekutiva sidorätter",
-          "repeat_intervall": "Repeat-intervall (dagar)"
+          "max_rules":       "Max per week",
+          "min_rules":       "Min per week",
+          "no_consecutive":  "No consecutive side dishes",
+          "repeat_interval": "Repeat interval (days)"
         },
         "data_description": {
-          "max_regler":      "Format: tagg:antal, tagg:antal  —  t.ex. köttfärs:2, fisk:1, lamm:1",
-          "min_regler":      "Format: tagg:antal, tagg:antal  —  t.ex. vegetarisk:1",
-          "ej_konsekutiv":   "Kommaseparerad lista  —  t.ex. potatis, ris, pasta, nudlar",
-          "repeat_intervall": "Antal dagar innan samma rätt får slumpas igen (0 = av)"
+          "max_rules":       "Format: tag:count, tag:count  —  e.g. köttfärs:2, fisk:1, lamm:1",
+          "min_rules":       "Format: tag:count, tag:count  —  e.g. vegetarisk:1",
+          "no_consecutive":  "Comma-separated list  —  e.g. potatis, ris, pasta, nudlar",
+          "repeat_interval": "Number of days before the same dish can be randomized again (0 = off)"
         }
       }
     }

@@ -5,33 +5,33 @@ from homeassistant.core import callback
 DOMAIN = "meal_solver_3000"
 
 DEFAULTS = {
-    "max_regler":      "köttfärs:2, fisk:1",
-    "min_regler":      "vegetarisk:1",
-    "ej_konsekutiv":   "potatis, ris, pasta, nudlar",
-    "repeat_intervall": 14,
+    "max_rules":       "köttfärs:2, fisk:1",
+    "min_rules":       "vegetarisk:1",
+    "no_consecutive":  "potatis, ris, pasta, nudlar",
+    "repeat_interval": 14,
 }
 
 
-def _validate_tagg_regler(value: str) -> str:
-    """Validerar format 'tagg:antal, tagg:antal'."""
+def _validate_tag_rules(value: str) -> str:
+    """Validates format 'tag:count, tag:count'."""
     if not value.strip():
         return value
-    for del_ in value.split(","):
-        del_ = del_.strip()
-        if not del_:
+    for part in value.split(","):
+        part = part.strip()
+        if not part:
             continue
-        delar = del_.split(":")
-        if len(delar) != 2:
-            raise vol.Invalid(f"Ogiltigt format '{del_}' — använd tagg:antal")
+        parts = part.split(":")
+        if len(parts) != 2:
+            raise vol.Invalid(f"Invalid format '{part}' — use tag:count")
         try:
-            int(delar[1].strip())
+            int(parts[1].strip())
         except ValueError:
-            raise vol.Invalid(f"'{delar[1].strip()}' är inte ett heltal")
+            raise vol.Invalid(f"'{parts[1].strip()}' is not an integer")
     return value
 
 
-def _validate_lista(value: str) -> str:
-    """Validerar kommaseparerad lista."""
+def _validate_list(value: str) -> str:
+    """Validates a comma-separated list."""
     return value
 
 
@@ -59,28 +59,28 @@ class MealSolverOptionsFlow(config_entries.OptionsFlow):
 
         if user_input is not None:
             try:
-                _validate_tagg_regler(user_input.get("max_regler", ""))
-                _validate_tagg_regler(user_input.get("min_regler", ""))
+                _validate_tag_rules(user_input.get("max_rules", ""))
+                _validate_tag_rules(user_input.get("min_rules", ""))
             except vol.Invalid as e:
                 errors["base"] = str(e)
             else:
                 return self.async_create_entry(data=user_input)
 
         schema = vol.Schema({
-            vol.Optional("max_regler",
-                         default=opts.get("max_regler", DEFAULTS["max_regler"])):
+            vol.Optional("max_rules",
+                         default=opts.get("max_rules", DEFAULTS["max_rules"])):
                 str,
 
-            vol.Optional("min_regler",
-                         default=opts.get("min_regler", DEFAULTS["min_regler"])):
+            vol.Optional("min_rules",
+                         default=opts.get("min_rules", DEFAULTS["min_rules"])):
                 str,
 
-            vol.Optional("ej_konsekutiv",
-                         default=opts.get("ej_konsekutiv", DEFAULTS["ej_konsekutiv"])):
+            vol.Optional("no_consecutive",
+                         default=opts.get("no_consecutive", DEFAULTS["no_consecutive"])):
                 str,
 
-            vol.Optional("repeat_intervall",
-                         default=opts.get("repeat_intervall", DEFAULTS["repeat_intervall"])):
+            vol.Optional("repeat_interval",
+                         default=opts.get("repeat_interval", DEFAULTS["repeat_interval"])):
                 vol.All(int, vol.Range(min=0, max=365)),
         })
 

@@ -1,31 +1,31 @@
 # Meal Solver 3000
 
-Smart veckomenygenerator för Home Assistant. Slumpar veckans middagar med regelbaserade begränsningar och låsbara dagar.
+Smart weekly menu generator for Home Assistant. Randomizes the week's dinners with rule-based constraints and lockable days.
 
-## Funktioner
+## Features
 
-- Slumpar 7 middagar (mån–sön) med separata pooler för vardag och helg
-- Regelstyrda begränsningar: max köttfärs/vecka, max fisk, min vegetarisk
-- Ingen samma sidorätt (potatis/ris/pasta/nudlar) två dagar i rad
-- Repeat-intervall — samma rätt kan inte dyka upp igen förrän efter X dagar
-- Lås valfria dagar (t.ex. Taco fredag) — övriga slumpas om
-- Konfigurerbara regler via HA:s Integrations-UI (config flow)
-- Lovelace-kort med lock/edit/slumpa-om
+- Randomizes 7 dinners (Mon–Sun) with separate pools for weekdays and weekends
+- Rule-driven constraints: max minced meat/week, max fish, min vegetarian
+- No repeated side dish (potato/rice/pasta/noodles) on consecutive days
+- Repeat interval — the same dish cannot appear again until after X days
+- Lock optional days (e.g. Taco Friday) — the rest are reshuffled
+- Configurable rules via HA's Integrations UI (config flow)
+- Lovelace card with lock/edit/shuffle
 
-## Struktur
+## Structure
 
 ```
 custom_components/meal_solver_3000/   # HA custom component
-  __init__.py       – solver + HA-integration
-  config_flow.py    – inställningar via Integrations-UI
+  __init__.py       – solver + HA integration
+  config_flow.py    – settings via Integrations UI
   manifest.json
   services.yaml
   strings.json
 
 Matlistor/
-  matratter.yaml    – alla rätter med metadata (dagar, taggar, låst_dag)
-  regler.yaml       – standardregler (override:as via config flow)
-  meal_solver_3000.py – fristående solver (kör utan HA)
+  matratter.yaml    – all dishes with metadata (dagar, taggar, låst_dag)
+  regler.yaml       – default rules (overrideable via config flow)
+  meal_solver_3000.py – standalone solver (runs without HA)
 
 www/
   meal_solver_card.js – Lovelace custom card
@@ -33,22 +33,22 @@ www/
 
 ## Installation
 
-1. Kopiera `custom_components/meal_solver_3000/` till `/config/custom_components/`
-2. Kopiera `Matlistor/` till `/config/Matlistor/`
-3. Kopiera `www/meal_solver_card.js` till `/config/www/`
-4. Lägg till i `configuration.yaml`:
+1. Copy `custom_components/meal_solver_3000/` to `/config/custom_components/`
+2. Copy `Matlistor/` to `/config/Matlistor/`
+3. Copy `www/meal_solver_card.js` to `/config/www/`
+4. Add to `configuration.yaml`:
    ```yaml
    meal_solver_3000:
    ```
-5. Skapa `input_text` och `input_boolean` entiteter för varje dag (se nedan)
-6. Starta om HA
-7. Gå till **Inställningar → Enheter och tjänster → + Lägg till integration** och sök "Meal Solver 3000"
-8. Lägg till Lovelace-kortet via Resurser: `/local/meal_solver_card.js`
+5. Create `input_text` and `input_boolean` entities for each day (see below)
+6. Restart HA
+7. Go to **Settings → Devices & Services → + Add integration** and search for "Meal Solver 3000"
+8. Add the Lovelace card via Resources: `/local/meal_solver_card.js`
 
-### Entiteter som krävs
+### Required entities
 
 ```yaml
-# input_text (en per dag, t.ex. configuration.yaml eller input_text.yaml)
+# input_text (one per day, e.g. in configuration.yaml or input_text.yaml)
 input_text:
   mandag_middag:
   tisdag_middag:
@@ -58,7 +58,7 @@ input_text:
   lordag_middag:
   sondag_middag:
 
-# input_boolean (lås per dag)
+# input_boolean (lock per day)
 input_boolean:
   mandag_last:
   tisdag_last:
@@ -71,14 +71,14 @@ input_boolean:
 
 ## Roadmap
 
-Idéer och planerade funktioner:
+Ideas and planned features:
 
-- [ ] **Ingredienser per maträtt** — lagra ingredienslistor i `matratter.yaml` och redigera dem via Lovelace-kortet
-- [ ] **Veckans inköpslista** — ny flik som aggregerar ingredienser för alla 7 rätter i aktuell veckoplan
-- [ ] **Receptsökning** — söka recept på nätet kopplat till en maträtt
-- [ ] **AI-receptgenerering** — generera recept via AI utifrån tillgängliga ingredienser hemma
+- [ ] **Ingredients per dish** — store ingredient lists in `matratter.yaml` and edit them via the Lovelace card
+- [ ] **Weekly shopping list** — new tab that aggregates ingredients for all 7 dishes in the current week's plan
+- [ ] **Recipe search** — search for recipes online linked to a dish
+- [ ] **AI recipe generation** — generate recipes via AI based on available ingredients at home
 
-## matratter.yaml-format
+## matratter.yaml format
 
 ```yaml
 Köttbullar med potatis:
@@ -88,5 +88,5 @@ Köttbullar med potatis:
 Tacos:
   dagar: helg
   taggar: [köttfärs]
-  låst_dag: fredag       # låses alltid till fredag
+  låst_dag: fredag       # always locked to Friday
 ```

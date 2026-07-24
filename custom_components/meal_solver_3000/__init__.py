@@ -9,19 +9,19 @@ DOMAIN = "meal_solver_3000"
 _LOGGER = logging.getLogger(__name__)
 
 BASE = Path("/config/Matlistor")
-MATRATTER_FILE = BASE / "matratter.yaml"
-REGLER_FILE    = BASE / "regler.yaml"
-HISTORIK_FILE  = BASE / "historik.json"
-TAGGAR_FILE    = BASE / "taggar.json"
+DISHES_FILE  = BASE / "matratter.yaml"
+RULES_FILE   = BASE / "regler.yaml"
+HISTORY_FILE = BASE / "historik.json"
+TAGS_FILE    = BASE / "taggar.json"
 
-_STD_TAGGAR = ["köttfärs","nöt","fläsk","fågel","fisk","vegetarisk","korv","lamm",
-               "potatis","ris","pasta","nudlar"]
+_DEFAULT_TAGS = ["köttfärs","nöt","fläsk","fågel","fisk","vegetarisk","korv","lamm",
+                 "potatis","ris","pasta","nudlar"]
 
-VARDAG_DAGAR = ["måndag", "tisdag", "onsdag", "torsdag"]
-HELG_DAGAR   = ["fredag", "lördag", "söndag"]
-ALLA_DAGAR   = VARDAG_DAGAR + HELG_DAGAR
+WEEKDAY_DAYS = ["måndag", "tisdag", "onsdag", "torsdag"]
+WEEKEND_DAYS = ["fredag", "lördag", "söndag"]
+ALL_DAYS     = WEEKDAY_DAYS + WEEKEND_DAYS
 
-DAG_ENTITY = {
+DAY_ENTITY = {
     "måndag":  ("input_text.mandag_middag",  "input_boolean.mandag_last"),
     "tisdag":  ("input_text.tisdag_middag",  "input_boolean.tisdag_last"),
     "onsdag":  ("input_text.onsdag_middag",  "input_boolean.onsdag_last"),
@@ -32,394 +32,394 @@ DAG_ENTITY = {
 }
 
 _OPTION_DEFAULTS = {
-    "max_regler":       "köttfärs:2, fisk:1",
-    "min_regler":       "vegetarisk:1",
-    "ej_konsekutiv":    "potatis, ris, pasta, nudlar",
-    "repeat_intervall": 14,
+    "max_rules":       "köttfärs:2, fisk:1",
+    "min_rules":       "vegetarisk:1",
+    "no_consecutive":  "potatis, ris, pasta, nudlar",
+    "repeat_interval": 14,
 }
 
 
-# ── Matliste-I/O ──────────────────────────────────────────────────────────────
+# ── Dish file I/O ─────────────────────────────────────────────────────────────
 
-def _load_matratter() -> dict:
-    with open(MATRATTER_FILE, encoding="utf-8") as f:
+def _load_dishes() -> dict:
+    with open(DISHES_FILE, encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
-def _save_matratter(matratter: dict):
-    with open(MATRATTER_FILE, "w", encoding="utf-8") as f:
-        yaml.dump(matratter, f, allow_unicode=True, default_flow_style=False, sort_keys=True)
+def _save_dishes(dishes: dict):
+    with open(DISHES_FILE, "w", encoding="utf-8") as f:
+        yaml.dump(dishes, f, allow_unicode=True, default_flow_style=False, sort_keys=True)
 
-def _load_taggar() -> list:
-    if not TAGGAR_FILE.exists():
-        # Seed från standardlista + vad som redan finns i matratter
+def _load_tags() -> list:
+    if not TAGS_FILE.exists():
+        # Seed from default list + tags already present in dishes file
         try:
-            m = _load_matratter()
+            m = _load_dishes()
             extra = {t for d in m.values() for t in d.get("taggar", [])}
         except Exception:
             extra = set()
-        taggar = sorted(set(_STD_TAGGAR) | extra)
-        _save_taggar(taggar)
-        return taggar
-    with open(TAGGAR_FILE, encoding="utf-8") as f:
+        tags = sorted(set(_DEFAULT_TAGS) | extra)
+        _save_tags(tags)
+        return tags
+    with open(TAGS_FILE, encoding="utf-8") as f:
         return json.load(f)
 
-def _save_taggar(taggar: list):
-    with open(TAGGAR_FILE, "w", encoding="utf-8") as f:
-        json.dump(sorted(set(taggar)), f, ensure_ascii=False, indent=2)
+def _save_tags(tags: list):
+    with open(TAGS_FILE, "w", encoding="utf-8") as f:
+        json.dump(sorted(set(tags)), f, ensure_ascii=False, indent=2)
 
-def _add_taggar_to_registry(new_tags: list):
-    existing = set(_load_taggar())
+def _add_tags_to_registry(new_tags: list):
+    existing = set(_load_tags())
     combined = existing | set(new_tags)
     if combined != existing:
-        _save_taggar(list(combined))
+        _save_tags(list(combined))
 
 async def _refresh_sensor(hass):
     def _load():
-        return _load_matratter(), _load_taggar()
-    matratter, known_tags = await hass.async_add_executor_job(_load)
+        return _load_dishes(), _load_tags()
+    dishes, known_tags = await hass.async_add_executor_job(_load)
     hass.states.async_set(
         "sensor.meal_solver_matlista",
-        len(matratter),
-        {"matratter": matratter, "known_tags": known_tags,
-         "friendly_name": "Meal Solver Matlista"},
+        len(dishes),
+        {"dishes": dishes, "known_tags": known_tags,
+         "friendly_name": "Meal Solver Dish List"},
     )
 
 
-# ── Regelparser ───────────────────────────────────────────────────────────────
+# ── Rule parser ───────────────────────────────────────────────────────────────
 
-def _parse_tagg_regler(text: str) -> dict:
+def _parse_tag_rules(text: str) -> dict:
     result = {}
-    for del_ in text.split(","):
-        del_ = del_.strip()
-        if not del_:
+    for part in text.split(","):
+        part = part.strip()
+        if not part:
             continue
-        delar = del_.split(":", 1)
-        if len(delar) == 2:
+        parts = part.split(":", 1)
+        if len(parts) == 2:
             try:
-                result[delar[0].strip()] = int(delar[1].strip())
+                result[parts[0].strip()] = int(parts[1].strip())
             except ValueError:
                 pass
     return result
 
-def _parse_lista(text: str) -> list:
+def _parse_list(text: str) -> list:
     return [x.strip() for x in text.split(",") if x.strip()]
 
-def _build_regler(opts: dict) -> dict:
+def _build_rules(opts: dict) -> dict:
     try:
-        with open(REGLER_FILE, encoding="utf-8") as f:
-            yaml_regler = yaml.safe_load(f) or {}
+        with open(RULES_FILE, encoding="utf-8") as f:
+            yaml_rules = yaml.safe_load(f) or {}
     except Exception:
-        yaml_regler = {}
+        yaml_rules = {}
 
-    max_per_vecka = (_parse_tagg_regler(opts["max_regler"]) if "max_regler" in opts
-                     else yaml_regler.get("max_per_vecka",
-                          _parse_tagg_regler(_OPTION_DEFAULTS["max_regler"])))
-    min_per_vecka = (_parse_tagg_regler(opts["min_regler"]) if "min_regler" in opts
-                     else yaml_regler.get("min_per_vecka",
-                          _parse_tagg_regler(_OPTION_DEFAULTS["min_regler"])))
-    ej_konsekutiv = (_parse_lista(opts["ej_konsekutiv"]) if "ej_konsekutiv" in opts
-                     else yaml_regler.get("ej_konsekutiv",
-                          _parse_lista(_OPTION_DEFAULTS["ej_konsekutiv"])))
+    max_per_week = (_parse_tag_rules(opts["max_rules"]) if "max_rules" in opts
+                    else yaml_rules.get("max_per_week",
+                         _parse_tag_rules(_OPTION_DEFAULTS["max_rules"])))
+    min_per_week = (_parse_tag_rules(opts["min_rules"]) if "min_rules" in opts
+                    else yaml_rules.get("min_per_week",
+                         _parse_tag_rules(_OPTION_DEFAULTS["min_rules"])))
+    no_consecutive = (_parse_list(opts["no_consecutive"]) if "no_consecutive" in opts
+                      else yaml_rules.get("no_consecutive",
+                           _parse_list(_OPTION_DEFAULTS["no_consecutive"])))
 
     return {
-        "max_per_vecka": max_per_vecka,
-        "min_per_vecka": min_per_vecka,
-        "ej_konsekutiv": ej_konsekutiv,
-        "repeat_intervall_dagar": opts.get("repeat_intervall",
-                                   yaml_regler.get("repeat_intervall_dagar",
-                                   _OPTION_DEFAULTS["repeat_intervall"])),
-        "max_forsok": yaml_regler.get("max_forsok", 1000),
+        "max_per_week": max_per_week,
+        "min_per_week": min_per_week,
+        "no_consecutive": no_consecutive,
+        "repeat_interval_days": opts.get("repeat_interval",
+                                  yaml_rules.get("repeat_interval_days",
+                                  _OPTION_DEFAULTS["repeat_interval"])),
+        "max_attempts": yaml_rules.get("max_attempts", 1000),
     }
 
 
 # ── Solver ────────────────────────────────────────────────────────────────────
 
-def _load_historik():
-    if not HISTORIK_FILE.exists():
+def _load_history():
+    if not HISTORY_FILE.exists():
         return []
-    with open(HISTORIK_FILE, encoding="utf-8") as f:
+    with open(HISTORY_FILE, encoding="utf-8") as f:
         return json.load(f)
 
-def _denna_vecka_sparad():
-    """Returnerar True om historiken redan har en post från denna ISO-vecka."""
-    historik = _load_historik()
-    if not historik:
+def _this_week_saved():
+    """Returns True if history already has an entry from the current ISO week."""
+    history = _load_history()
+    if not history:
         return False
     today = date.today()
-    last = date.fromisoformat(historik[-1]["datum"])
+    last = date.fromisoformat(history[-1]["date"])
     return last.isocalendar()[:2] == today.isocalendar()[:2]
 
-def _save_historik(plan):
-    real_plan = {dag: ratt for dag, ratt in plan.items()
-                 if ratt and ratt not in ("-", "unknown", "")}
+def _save_history(plan):
+    real_plan = {day: dish for day, dish in plan.items()
+                 if dish and dish not in ("-", "unknown", "")}
     if len(real_plan) < 3:
         return
-    historik = _load_historik()
-    historik.append({"datum": date.today().isoformat(), "plan": real_plan})
-    with open(HISTORIK_FILE, "w", encoding="utf-8") as f:
-        json.dump(historik, f, ensure_ascii=False, indent=2)
+    history = _load_history()
+    history.append({"date": date.today().isoformat(), "plan": real_plan})
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)
 
-def _ratterna_inom_intervall(historik, intervall_dagar):
-    cutoff = date.today() - timedelta(days=intervall_dagar)
-    uteslut = set()
-    for vecka in historik:
-        if date.fromisoformat(vecka["datum"]) >= cutoff:
-            uteslut.update(vecka["plan"].values())
-    return uteslut
+def _dishes_within_interval(history, interval_days):
+    cutoff = date.today() - timedelta(days=interval_days)
+    excluded = set()
+    for week in history:
+        if date.fromisoformat(week["date"]) >= cutoff:
+            excluded.update(week["plan"].values())
+    return excluded
 
-def _kandidater(matratter, dag_typ, uteslut, lasta_rattter):
+def _candidates(dishes, day_type, excluded, locked_dishes):
     return [
-        namn for namn, data in matratter.items()
-        if data.get("dagar") in (dag_typ, "båda")
-        and namn not in uteslut
-        and namn not in lasta_rattter.values()
+        name for name, data in dishes.items()
+        if data.get("dagar") in (day_type, "båda")
+        and name not in excluded
+        and name not in locked_dishes.values()
         and not data.get("låst_dag")
     ]
 
-def _tag_counts(plan, matratter):
+def _tag_counts(plan, dishes):
     counts = {}
-    for ratt in plan.values():
-        for tagg in matratter.get(ratt, {}).get("taggar", []):
-            counts[tagg] = counts.get(tagg, 0) + 1
+    for dish in plan.values():
+        for tag in dishes.get(dish, {}).get("taggar", []):
+            counts[tag] = counts.get(tag, 0) + 1
     return counts
 
-def _max_ok(plan, matratter, regler, ny_ratt):
-    counts = _tag_counts(plan, matratter)
-    for tagg in matratter[ny_ratt].get("taggar", []):
-        max_antal = regler.get("max_per_vecka", {}).get(tagg)
-        if max_antal is not None and counts.get(tagg, 0) + 1 > max_antal:
+def _max_ok(plan, dishes, rules, new_dish):
+    counts = _tag_counts(plan, dishes)
+    for tag in dishes[new_dish].get("taggar", []):
+        max_count = rules.get("max_per_week", {}).get(tag)
+        if max_count is not None and counts.get(tag, 0) + 1 > max_count:
             return False
     return True
 
-def _konsekutiv_ok(plan, matratter, regler, dag, ny_ratt):
-    ej_konk = set(regler.get("ej_konsekutiv", []))
-    if not ej_konk:
+def _no_consecutive_ok(plan, dishes, rules, day, new_dish):
+    no_consec = set(rules.get("no_consecutive", []))
+    if not no_consec:
         return True
-    idx = ALLA_DAGAR.index(dag)
+    idx = ALL_DAYS.index(day)
     if idx == 0:
         return True
-    foregaende = plan.get(ALLA_DAGAR[idx - 1])
-    if not foregaende or foregaende not in matratter:
+    previous = plan.get(ALL_DAYS[idx - 1])
+    if not previous or previous not in dishes:
         return True
-    ny_rel   = {t.lower() for t in matratter[ny_ratt].get("taggar", [])} & ej_konk
-    fore_rel = {t.lower() for t in matratter[foregaende].get("taggar", [])} & ej_konk
-    if not ny_rel or not fore_rel:
+    new_rel  = {t.lower() for t in dishes[new_dish].get("taggar", [])} & no_consec
+    prev_rel = {t.lower() for t in dishes[previous].get("taggar", [])} & no_consec
+    if not new_rel or not prev_rel:
         return True
-    return not (ny_rel == fore_rel and len(ny_rel) == 1)
+    return not (new_rel == prev_rel and len(new_rel) == 1)
 
-def _min_ok(plan, matratter, regler):
-    counts = _tag_counts(plan, matratter)
-    for tagg, min_antal in regler.get("min_per_vecka", {}).items():
-        if counts.get(tagg, 0) < min_antal:
+def _min_ok(plan, dishes, rules):
+    counts = _tag_counts(plan, dishes)
+    for tag, min_count in rules.get("min_per_week", {}).items():
+        if counts.get(tag, 0) < min_count:
             return False
     return True
 
-def _krav_ok(plan, matratter):
-    """Kontrollera att rätter med 'kräver' har sin beroenderätt med i planen."""
-    plan_rattar = set(plan.values())
-    for ratt in plan_rattar:
-        krav = matratter.get(ratt, {}).get("kräver")
-        if krav and krav not in plan_rattar:
+def _requirements_ok(plan, dishes):
+    """Check that dishes with 'kräver' have their required dish in the plan."""
+    plan_dishes = set(plan.values())
+    for dish in plan_dishes:
+        requires = dishes.get(dish, {}).get("kräver")
+        if requires and requires not in plan_dishes:
             return False
     return True
 
-def _solve(lasta_rattter, regler):
-    matratter  = _load_matratter()
-    historik   = _load_historik()
-    intervall  = regler.get("repeat_intervall_dagar", 14)
-    max_forsok = regler.get("max_forsok", 1000)
-    uteslut    = _ratterna_inom_intervall(historik, intervall)
-    uteslut   -= set(lasta_rattter.values())
+def _solve(locked_dishes, rules):
+    dishes       = _load_dishes()
+    history      = _load_history()
+    interval     = rules.get("repeat_interval_days", 14)
+    max_attempts = rules.get("max_attempts", 1000)
+    excluded     = _dishes_within_interval(history, interval)
+    excluded    -= set(locked_dishes.values())
 
-    yaml_lasta = {
-        data["låst_dag"]: namn
-        for namn, data in matratter.items()
-        if data.get("låst_dag") and data["låst_dag"] in ALLA_DAGAR
+    yaml_locked = {
+        data["låst_dag"]: name
+        for name, data in dishes.items()
+        if data.get("låst_dag") and data["låst_dag"] in ALL_DAYS
     }
 
-    for _ in range(max_forsok):
-        plan = {**yaml_lasta, **lasta_rattter}
-        vardag_pool = _kandidater(matratter, "vardag", uteslut, lasta_rattter)
-        helg_pool   = _kandidater(matratter, "helg",   uteslut, lasta_rattter)
-        random.shuffle(vardag_pool)
-        random.shuffle(helg_pool)
+    for _ in range(max_attempts):
+        plan = {**yaml_locked, **locked_dishes}
+        weekday_pool = _candidates(dishes, "vardag", excluded, locked_dishes)
+        weekend_pool = _candidates(dishes, "helg",   excluded, locked_dishes)
+        random.shuffle(weekday_pool)
+        random.shuffle(weekend_pool)
 
         ok = True
-        for dag in ALLA_DAGAR:
-            if dag in plan:
+        for day in ALL_DAYS:
+            if day in plan:
                 continue
-            pool = helg_pool if dag in HELG_DAGAR else vardag_pool
-            vald = next(
+            pool = weekend_pool if day in WEEKEND_DAYS else weekday_pool
+            selected = next(
                 (r for r in pool
                  if r not in plan.values()
-                 and _max_ok(plan, matratter, regler, r)
-                 and _konsekutiv_ok(plan, matratter, regler, dag, r)),
+                 and _max_ok(plan, dishes, rules, r)
+                 and _no_consecutive_ok(plan, dishes, rules, day, r)),
                 None,
             )
-            if vald is None:
+            if selected is None:
                 ok = False
                 break
-            plan[dag] = vald
+            plan[day] = selected
 
-        if ok and _min_ok(plan, matratter, regler) and _krav_ok(plan, matratter):
+        if ok and _min_ok(plan, dishes, rules) and _requirements_ok(plan, dishes):
             return plan
 
     return None
 
 
-# ── HA-integration ────────────────────────────────────────────────────────────
+# ── HA integration ────────────────────────────────────────────────────────────
 
 async def async_setup(hass, config):
 
-    async def handle_generera_vecka(call):
+    async def handle_generate_week(call):
         entries = hass.config_entries.async_entries(DOMAIN)
         opts    = entries[0].options if entries else {}
-        regler  = await hass.async_add_executor_job(_build_regler, opts)
+        rules   = await hass.async_add_executor_job(_build_rules, opts)
 
-        lasta_rattter = {}
-        for dag, (text_eid, bool_eid) in DAG_ENTITY.items():
+        locked_dishes = {}
+        for day, (text_eid, bool_eid) in DAY_ENTITY.items():
             bs = hass.states.get(bool_eid)
             if bs and bs.state == "on":
                 ts = hass.states.get(text_eid)
                 if ts and ts.state not in ("", "unknown"):
-                    lasta_rattter[dag] = ts.state
+                    locked_dishes[day] = ts.state
 
-        # Spara nuvarande vecka till historik — bara om den inte redan sparats denna vecka
-        already_saved = await hass.async_add_executor_job(_denna_vecka_sparad)
+        # Save current week to history — only if not already saved this week
+        already_saved = await hass.async_add_executor_job(_this_week_saved)
         if not already_saved:
             current_plan = {}
-            for dag, (text_eid, _) in DAG_ENTITY.items():
+            for day, (text_eid, _) in DAY_ENTITY.items():
                 ts = hass.states.get(text_eid)
                 if ts and ts.state not in ("", "unknown"):
-                    current_plan[dag] = ts.state
+                    current_plan[day] = ts.state
             if current_plan:
-                await hass.async_add_executor_job(_save_historik, current_plan)
+                await hass.async_add_executor_job(_save_history, current_plan)
 
-        plan = await hass.async_add_executor_job(_solve, lasta_rattter, regler)
+        plan = await hass.async_add_executor_job(_solve, locked_dishes, rules)
         if plan is None:
-            _LOGGER.error("Meal Solver 3000: kunde inte hitta giltig veckoplan")
+            _LOGGER.error("Meal Solver 3000: could not find a valid weekly plan")
             return
 
-        for dag, ratt in plan.items():
-            text_eid, _ = DAG_ENTITY[dag]
+        for day, dish in plan.items():
+            text_eid, _ = DAY_ENTITY[day]
             await hass.services.async_call(
                 "input_text", "set_value",
-                {"entity_id": text_eid, "value": ratt},
+                {"entity_id": text_eid, "value": dish},
                 blocking=True,
             )
-        await hass.async_add_executor_job(_save_historik, plan)
-        _LOGGER.info("Meal Solver 3000: ny veckoplan — %s", date.today())
+        await hass.async_add_executor_job(_save_history, plan)
+        _LOGGER.info("Meal Solver 3000: new weekly plan — %s", date.today())
 
-    # ── Matliste-tjänster ─────────────────────────────────────────
+    # ── Dish services ──────────────────────────────────────────────
 
-    async def handle_lagg_till_ratt(call):
-        namn     = call.data.get("namn", "").strip()
-        dagar    = call.data.get("dagar", "vardag")
-        taggar   = call.data.get("taggar", [])
-        last_dag = call.data.get("låst_dag", "")
-        krav     = call.data.get("kräver", "").strip()
-        if not namn:
+    async def handle_add_dish(call):
+        name       = call.data.get("name", "").strip()
+        days       = call.data.get("days", "vardag")
+        tags       = call.data.get("tags", [])
+        locked_day = call.data.get("locked_day", "")
+        requires   = call.data.get("requires", "").strip()
+        if not name:
             return
         def _w():
-            m = _load_matratter()
-            entry = {"dagar": dagar, "taggar": taggar}
-            if last_dag:
-                entry["låst_dag"] = last_dag
-            if krav:
-                entry["kräver"] = krav
-            m[namn] = entry
-            _save_matratter(m)
-            _add_taggar_to_registry(taggar)
+            m = _load_dishes()
+            entry = {"dagar": days, "taggar": tags}
+            if locked_day:
+                entry["låst_dag"] = locked_day
+            if requires:
+                entry["kräver"] = requires
+            m[name] = entry
+            _save_dishes(m)
+            _add_tags_to_registry(tags)
         await hass.async_add_executor_job(_w)
         await _refresh_sensor(hass)
 
-    async def handle_uppdatera_ratt(call):
-        gammalt  = call.data.get("gammalt_namn", "").strip()
-        nytt     = call.data.get("namn", "").strip()
-        dagar    = call.data.get("dagar", "vardag")
-        taggar   = call.data.get("taggar", [])
-        last_dag = call.data.get("låst_dag", "")
-        krav     = call.data.get("kräver", "").strip()
-        if not nytt:
+    async def handle_update_dish(call):
+        old_name   = call.data.get("old_name", "").strip()
+        name       = call.data.get("name", "").strip()
+        days       = call.data.get("days", "vardag")
+        tags       = call.data.get("tags", [])
+        locked_day = call.data.get("locked_day", "")
+        requires   = call.data.get("requires", "").strip()
+        if not name:
             return
         def _w():
-            m = _load_matratter()
-            if gammalt and gammalt in m:
-                del m[gammalt]
-            entry = {"dagar": dagar, "taggar": taggar}
-            if last_dag:
-                entry["låst_dag"] = last_dag
-            if krav:
-                entry["kräver"] = krav
-            m[nytt] = entry
-            _save_matratter(m)
-            _add_taggar_to_registry(taggar)
+            m = _load_dishes()
+            if old_name and old_name in m:
+                del m[old_name]
+            entry = {"dagar": days, "taggar": tags}
+            if locked_day:
+                entry["låst_dag"] = locked_day
+            if requires:
+                entry["kräver"] = requires
+            m[name] = entry
+            _save_dishes(m)
+            _add_tags_to_registry(tags)
         await hass.async_add_executor_job(_w)
         await _refresh_sensor(hass)
 
-    async def handle_ta_bort_ratt(call):
-        namn = call.data.get("namn", "").strip()
-        if not namn:
+    async def handle_remove_dish(call):
+        name = call.data.get("name", "").strip()
+        if not name:
             return
         def _w():
-            m = _load_matratter()
-            m.pop(namn, None)
-            _save_matratter(m)
+            m = _load_dishes()
+            m.pop(name, None)
+            _save_dishes(m)
         await hass.async_add_executor_job(_w)
         await _refresh_sensor(hass)
 
-    # ── Tagg-tjänster ─────────────────────────────────────────────
+    # ── Tag services ───────────────────────────────────────────────
 
-    async def handle_skapa_tagg(call):
-        namn = call.data.get("namn", "").strip().lower()
-        if not namn:
+    async def handle_create_tag(call):
+        name = call.data.get("name", "").strip().lower()
+        if not name:
             return
-        await hass.async_add_executor_job(_add_taggar_to_registry, [namn])
+        await hass.async_add_executor_job(_add_tags_to_registry, [name])
         await _refresh_sensor(hass)
-        _LOGGER.info("Meal Solver 3000: skapade tagg '%s'", namn)
+        _LOGGER.info("Meal Solver 3000: created tag '%s'", name)
 
-    async def handle_byt_namn_pa_tagg(call):
-        gammalt = call.data.get("gammalt_namn", "").strip()
-        nytt    = call.data.get("nytt_namn", "").strip()
-        if not gammalt or not nytt or gammalt == nytt:
+    async def handle_rename_tag(call):
+        old_name = call.data.get("old_name", "").strip()
+        new_name = call.data.get("new_name", "").strip()
+        if not old_name or not new_name or old_name == new_name:
             return
         def _w():
-            m = _load_matratter()
+            m = _load_dishes()
             for data in m.values():
-                data["taggar"] = [nytt if t == gammalt else t for t in data.get("taggar", [])]
-            _save_matratter(m)
-            tl = _load_taggar()
-            _save_taggar([nytt if t == gammalt else t for t in tl])
+                data["taggar"] = [new_name if t == old_name else t for t in data.get("taggar", [])]
+            _save_dishes(m)
+            tl = _load_tags()
+            _save_tags([new_name if t == old_name else t for t in tl])
         await hass.async_add_executor_job(_w)
         await _refresh_sensor(hass)
-        _LOGGER.info("Meal Solver 3000: bytte tagg '%s'→'%s'", gammalt, nytt)
+        _LOGGER.info("Meal Solver 3000: renamed tag '%s'→'%s'", old_name, new_name)
 
-    async def handle_ta_bort_tagg(call):
-        namn = call.data.get("namn", "").strip()
-        if not namn:
+    async def handle_remove_tag(call):
+        name = call.data.get("name", "").strip()
+        if not name:
             return
         def _w():
-            m = _load_matratter()
+            m = _load_dishes()
             for data in m.values():
-                data["taggar"] = [t for t in data.get("taggar", []) if t != namn]
-            _save_matratter(m)
-            _save_taggar([t for t in _load_taggar() if t != namn])
+                data["taggar"] = [t for t in data.get("taggar", []) if t != name]
+            _save_dishes(m)
+            _save_tags([t for t in _load_tags() if t != name])
         await hass.async_add_executor_job(_w)
         await _refresh_sensor(hass)
-        _LOGGER.info("Meal Solver 3000: tog bort tagg '%s'", namn)
+        _LOGGER.info("Meal Solver 3000: removed tag '%s'", name)
 
-    # ── Registrera ────────────────────────────────────────────────
+    # ── Register services ──────────────────────────────────────────
 
-    hass.services.async_register(DOMAIN, "generera_vecka",    handle_generera_vecka)
-    hass.services.async_register(DOMAIN, "lagg_till_ratt",    handle_lagg_till_ratt)
-    hass.services.async_register(DOMAIN, "uppdatera_ratt",    handle_uppdatera_ratt)
-    hass.services.async_register(DOMAIN, "ta_bort_ratt",      handle_ta_bort_ratt)
-    hass.services.async_register(DOMAIN, "skapa_tagg",        handle_skapa_tagg)
-    hass.services.async_register(DOMAIN, "byt_namn_pa_tagg",  handle_byt_namn_pa_tagg)
-    hass.services.async_register(DOMAIN, "ta_bort_tagg",      handle_ta_bort_tagg)
+    hass.services.async_register(DOMAIN, "generate_week",  handle_generate_week)
+    hass.services.async_register(DOMAIN, "add_dish",       handle_add_dish)
+    hass.services.async_register(DOMAIN, "update_dish",    handle_update_dish)
+    hass.services.async_register(DOMAIN, "remove_dish",    handle_remove_dish)
+    hass.services.async_register(DOMAIN, "create_tag",     handle_create_tag)
+    hass.services.async_register(DOMAIN, "rename_tag",     handle_rename_tag)
+    hass.services.async_register(DOMAIN, "remove_tag",     handle_remove_tag)
 
     await _refresh_sensor(hass)
-    _LOGGER.info("Meal Solver 3000: redo")
+    _LOGGER.info("Meal Solver 3000: ready")
     return True
 
 

@@ -1,48 +1,48 @@
-generera_vecka:
-  name: Generera veckans middagar
-  description: Slumpar veckans middagar med hänsyn till låsta dagar och regler.
+generate_week:
+  name: Generate week's dinners
+  description: Randomizes the week's dinners taking into account locked days and rules.
 
-lagg_till_ratt:
-  name: Lägg till maträtt
-  description: Lägger till en ny maträtt i matlistan.
+add_dish:
+  name: Add dish
+  description: Adds a new dish to the dish list.
   fields:
-    namn:
-      description: Rättens namn
-      example: "Lax med potatis"
-    dagar:
-      description: "vardag, helg eller båda"
+    name:
+      description: Name of the dish
+      example: "Salmon with potatoes"
+    days:
+      description: "vardag, helg or båda"
       example: "vardag"
-    taggar:
-      description: Lista med taggar
+    tags:
+      description: List of tags
       example: ["fisk", "potatis"]
-    låst_dag:
-      description: Dag rätten alltid serveras (valfritt)
+    locked_day:
+      description: Day the dish is always served (optional)
       example: "fredag"
 
-uppdatera_ratt:
-  name: Uppdatera maträtt
-  description: Ändrar en befintlig maträtt i matlistan.
+update_dish:
+  name: Update dish
+  description: Updates an existing dish in the dish list.
   fields:
-    gammalt_namn:
-      description: Nuvarande namn på rätten
-      example: "Lax med potatis"
-    namn:
-      description: Nytt namn (samma om inget namnbyte)
-      example: "Lax med ris"
-    dagar:
-      description: "vardag, helg eller båda"
+    old_name:
+      description: Current name of the dish
+      example: "Salmon with potatoes"
+    name:
+      description: New name (same if no rename)
+      example: "Salmon with rice"
+    days:
+      description: "vardag, helg or båda"
       example: "helg"
-    taggar:
-      description: Lista med taggar
+    tags:
+      description: List of tags
       example: ["fisk", "ris"]
-    låst_dag:
-      description: Dag rätten alltid serveras (valfritt)
+    locked_day:
+      description: Day the dish is always served (optional)
       example: ""
 
-ta_bort_ratt:
-  name: Ta bort maträtt
-  description: Tar bort en maträtt från matlistan.
+remove_dish:
+  name: Remove dish
+  description: Removes a dish from the dish list.
   fields:
-    namn:
-      description: Rättens namn
-      example: "Lax med potatis"
+    name:
+      description: Name of the dish
+      example: "Salmon with potatoes"

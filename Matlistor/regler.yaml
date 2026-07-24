@@ -1,22 +1,22 @@
-# Meal Solver 3000 — Regler
-# Styr hur veckans middagar väljs
+# Meal Solver 3000 — Rules
+# Controls how the week's dinners are selected
 
-max_per_vecka:
+max_per_week:
   köttfärs: 2
   fisk: 1
 
-min_per_vecka:
+min_per_week:
   vegetarisk: 1
 
-# Dessa taggar får inte förekomma på angränsande dagar
-ej_konsekutiv:
+# These tags may not appear on adjacent days
+no_consecutive:
   - potatis
   - ris
   - pasta
   - nudlar
 
-# Samma rätt får ej dyka upp inom X dagar
-repeat_intervall_dagar: 14
+# The same dish cannot appear again within X days
+repeat_interval_days: 14
 
-# Max antal försök innan solver ger upp och rapporterar konflikt
-max_forsok: 1000
+# Maximum number of attempts before the solver gives up and reports a conflict
+max_attempts: 1000

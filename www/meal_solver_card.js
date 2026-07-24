@@ -2,26 +2,26 @@ class MealSolverCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
-    this._editingDay  = null;   // veckoplan inline-edit
+    this._editingDay  = null;   // week plan inline edit
     this._tab         = 'vecka';
-    this._kat         = '';
-    this._editing     = null;   // matlista edit-form
-    this._editingTag  = null;   // taggar inline rename { gammalt, nytt }
-    this._listaActive = false;  // select i lista/taggar-flik är öppen → blockera re-render
+    this._category    = '';
+    this._editing     = null;   // dish list edit form
+    this._editingTag  = null;   // tag inline rename { oldName, newName }
+    this._listActive  = false;  // select in list/tags tab is open → block re-render
   }
 
   setConfig(config) { this._config = config; }
 
   set hass(hass) {
     this._hass = hass;
-    if (!this._editingDay && !this._editing && !this._listaActive && !this._editingTag) {
+    if (!this._editingDay && !this._editing && !this._listActive && !this._editingTag) {
       this._render();
     }
   }
 
   // ── Helpers ───────────────────────────────────────────────────
 
-  _dagar() {
+  _days() {
     return [
       { dag:'måndag',  id:'mandag',  typ:'vardag' },
       { dag:'tisdag',  id:'tisdag',  typ:'vardag' },
@@ -36,36 +36,36 @@ class MealSolverCard extends HTMLElement {
   _meal(id)   { const s=this._hass.states[`input_text.${id}_middag`];   return s?s.state:'—'; }
   _locked(id) { const s=this._hass.states[`input_boolean.${id}_last`]; return s&&s.state==='on'; }
 
-  _matratter() {
+  _dishes() {
     const s = this._hass.states['sensor.meal_solver_matlista'];
-    return s ? (s.attributes.matratter||{}) : {};
+    return s ? (s.attributes.dishes||{}) : {};
   }
 
-  _allaTagger() {
+  _allTags() {
     const s = this._hass.states['sensor.meal_solver_matlista'];
     const known = s ? (s.attributes.known_tags || []) : [];
-    // fallback om sensor inte har known_tags ännu
+    // fallback if sensor does not have known_tags yet
     if (known.length) return known;
-    const std = ['köttfärs','nöt','fläsk','fågel','fisk','vegetarisk','korv','lamm',
-                 'potatis','ris','pasta','nudlar'];
+    const defaults = ['köttfärs','nöt','fläsk','fågel','fisk','vegetarisk','korv','lamm',
+                      'potatis','ris','pasta','nudlar'];
     const extra = new Set();
-    for (const d of Object.values(this._matratter()))
+    for (const d of Object.values(this._dishes()))
       for (const t of (d.taggar||[])) extra.add(t);
-    return [...new Set([...std,...extra])];
+    return [...new Set([...defaults,...extra])];
   }
 
-  _kravOpts(vald) {
-    const ratter = Object.keys(this._matratter()).sort((a,b)=>a.localeCompare(b,'sv'));
-    const opts = ratter
-      .filter(n => n !== (this._editing?.namn || ''))
-      .map(n => `<option value="${n}"${vald===n?' selected':''}>${n}</option>`)
+  _requiresOpts(selected) {
+    const dishList = Object.keys(this._dishes()).sort((a,b)=>a.localeCompare(b,'sv'));
+    const opts = dishList
+      .filter(n => n !== (this._editing?.oldName || ''))
+      .map(n => `<option value="${n}"${selected===n?' selected':''}>${n}</option>`)
       .join('');
-    return `<option value="">— ingen —</option>${opts}`;
+    return `<option value="">— none —</option>${opts}`;
   }
 
-  _taggRakning() {
+  _tagCounts() {
     const cnt = {};
-    for (const d of Object.values(this._matratter()))
+    for (const d of Object.values(this._dishes()))
       for (const t of (d.taggar||[])) cnt[t]=(cnt[t]||0)+1;
     return cnt;
   }
@@ -87,25 +87,25 @@ class MealSolverCard extends HTMLElement {
       }</button>`).join('')
     }</div><div class="hdiv"></div>`;
 
-    const content = this._tab==='vecka' ? this._veckaHTML()
-                  : this._tab==='lista' ? this._listaHTML()
-                  :                       this._taggarHTML();
+    const content = this._tab==='vecka' ? this._weekHTML()
+                  : this._tab==='lista' ? this._listHTML()
+                  :                       this._tagsHTML();
 
     this.shadowRoot.innerHTML = `${this._css()}<div class="card">${tabBar}${content}</div>`;
     this._attachEvents();
   }
 
-  // ── Veckoplan ─────────────────────────────────────────────────
+  // ── Week plan ─────────────────────────────────────────────────
 
-  _veckaHTML() {
-    const rows = this._dagar().map(({dag,id,typ},i) => {
+  _weekHTML() {
+    const rows = this._days().map(({dag,id,typ},i) => {
       const meal=this._meal(id), locked=this._locked(id);
-      const badge = locked ? `<span class="badge badge-last">låst</span>`
+      const badge = locked ? `<span class="badge badge-locked">locked</span>`
                            : `<span class="badge badge-${typ}">${typ}</span>`;
       return `${i===4?'<div class="hdiv"></div>':''}
         <div class="row" data-id="${id}">
-          <span class="dag">${dag.substring(0,3)}</span>
-          <span class="ratt">${meal}</span>
+          <span class="day">${dag.substring(0,3)}</span>
+          <span class="dish">${meal}</span>
           ${badge}
           <div class="actions">
             <button class="icon-btn edit-btn" data-id="${id}" data-meal="${meal.replace(/"/g,'&quot;')}">${this._iEdit()}</button>
@@ -115,109 +115,108 @@ class MealSolverCard extends HTMLElement {
     }).join('');
     return `
       <div class="week-header">
-        <span class="title">Veckans middagar</span>
-        <button class="btn-slumpa" id="slumpa-btn">${this._iRefresh()} Slumpa om</button>
+        <span class="title">This week's dinners</span>
+        <button class="btn-shuffle" id="shuffle-btn">${this._iRefresh()} Shuffle</button>
       </div>
       <div class="hdiv"></div>${rows}<div class="hdiv"></div>
-      <div class="footer"><span>Meal Solver 3000</span><span>Söndag 17:00</span></div>`;
+      <div class="footer"><span>Meal Solver 3000</span><span>Sunday 17:00</span></div>`;
   }
 
-  // ── Matlista ──────────────────────────────────────────────────
+  // ── Dish list ─────────────────────────────────────────────────
 
-  _listaHTML() {
+  _listHTML() {
     if (this._editing) return this._editFormHTML();
-    const matratter = this._matratter();
+    const dishes = this._dishes();
     if (!this._hass.states['sensor.meal_solver_matlista'])
-      return `<div class="empty">Laddar matlistan…</div>`;
+      return `<div class="empty">Loading dish list…</div>`;
 
     const cnt = { vardag:0, helg:0, båda:0 };
-    for (const d of Object.values(matratter)) cnt[d.dagar] = (cnt[d.dagar]||0) + 1;
-    const total = Object.keys(matratter).length;
+    for (const d of Object.values(dishes)) cnt[d.dagar] = (cnt[d.dagar]||0) + 1;
+    const total = Object.keys(dishes).length;
     const stats = `<div class="stats-row">
-      <span class="stat-pill stat-total">${total} totalt</span>
-      <span class="stat-pill stat-vardag">${cnt.vardag||0} vardag</span>
-      <span class="stat-pill stat-helg">${cnt.helg||0} helg</span>
-      <span class="stat-pill stat-bada">${cnt.båda||0} båda</span>
+      <span class="stat-pill stat-total">${total} total</span>
+      <span class="stat-pill stat-vardag">${cnt.vardag||0} weekday</span>
+      <span class="stat-pill stat-helg">${cnt.helg||0} weekend</span>
+      <span class="stat-pill stat-both">${cnt.båda||0} both</span>
     </div>`;
 
-    const katOpts = ['vardag','helg','båda'].map(k=>
-      `<option value="${k}"${this._kat===k?' selected':''}>${k}</option>`).join('');
+    const catOpts = ['vardag','helg','båda'].map(k=>
+      `<option value="${k}"${this._category===k?' selected':''}>${k}</option>`).join('');
 
-    let rattSelect = '';
-    if (this._kat) {
-      const ratter = Object.entries(matratter)
-        .filter(([,d])=>this._kat==='båda'||d.dagar===this._kat||d.dagar==='båda')
+    let dishSelect = '';
+    if (this._category) {
+      const dishList = Object.entries(dishes)
+        .filter(([,d])=>this._category==='båda'||d.dagar===this._category||d.dagar==='båda')
         .sort(([a],[b])=>a.localeCompare(b,'sv'));
-      rattSelect = `<div class="field"><label>Maträtt</label>
-        <select id="ratt-select" class="sel">
-          <option value="">— välj maträtt —</option>
-          ${ratter.map(([n])=>`<option value="${n}">${n}</option>`).join('')}
+      dishSelect = `<div class="field"><label>Dish</label>
+        <select id="dish-select" class="sel">
+          <option value="">— select dish —</option>
+          ${dishList.map(([n])=>`<option value="${n}">${n}</option>`).join('')}
         </select></div>`;
     }
     return `<div class="wrap">
       ${stats}
-      <div class="field"><label>Kategori</label>
-        <select id="kat-select" class="sel">
-          <option value="">— välj kategori —</option>${katOpts}
+      <div class="field"><label>Category</label>
+        <select id="cat-select" class="sel">
+          <option value="">— select category —</option>${catOpts}
         </select></div>
-      ${rattSelect}
-      <button class="btn-ny" id="ny-btn">+ Ny maträtt</button>
+      ${dishSelect}
+      <button class="btn-new" id="new-btn">+ New dish</button>
     </div>`;
   }
 
   _editFormHTML() {
     const e = this._editing;
-    const chips = this._allaTagger().map(t=>{
-      const on=e.taggar.has(t);
+    const chips = this._allTags().map(t=>{
+      const on=e.tags.has(t);
       return `<span class="chip${on?' on':''}" data-tag="${t}">${t}</span>`;
     }).join('');
-    const dagRadios = ['vardag','helg','båda'].map(d=>
-      `<label class="rl"><input type="radio" name="ed" value="${d}"${e.dagar===d?' checked':''}> ${d}</label>`
+    const dayRadios = ['vardag','helg','båda'].map(d=>
+      `<label class="rl"><input type="radio" name="ed" value="${d}"${e.days===d?' checked':''}> ${d}</label>`
     ).join('');
-    const dagOpts = ['','måndag','tisdag','onsdag','torsdag','fredag','lördag','söndag'].map(d=>
-      `<option value="${d}"${e.låst_dag===d?' selected':''}>${d||'— ingen —'}</option>`).join('');
+    const dayOpts = ['','måndag','tisdag','onsdag','torsdag','fredag','lördag','söndag'].map(d=>
+      `<option value="${d}"${e.lockedDay===d?' selected':''}>${d||'— none —'}</option>`).join('');
     return `<div class="wrap">
       <div class="edit-head">
-        <span>${e.isNew?'Ny maträtt':'Redigera'}</span>
+        <span>${e.isNew?'New dish':'Edit'}</span>
         <button class="icon-btn txt-btn" id="cancel-btn">✕</button>
       </div><div class="hdiv"></div>
-      <div class="field"><label>Namn</label>
-        <input class="inp" id="edit-namn" type="text" value="${e.namn.replace(/"/g,'&quot;')}" autocomplete="off"></div>
-      <div class="field"><label>Dagar</label>
-        <div class="radio-row">${dagRadios}</div></div>
-      <div class="field"><label>Taggar</label>
+      <div class="field"><label>Name</label>
+        <input class="inp" id="edit-name" type="text" value="${e.name.replace(/"/g,'&quot;')}" autocomplete="off"></div>
+      <div class="field"><label>Days</label>
+        <div class="radio-row">${dayRadios}</div></div>
+      <div class="field"><label>Tags</label>
         <div class="chips" id="chips">${chips}</div>
         <div class="tag-row">
-          <input class="inp tag-inp" id="new-tag" type="text" placeholder="Lägg till tagg…">
+          <input class="inp tag-inp" id="new-tag" type="text" placeholder="Add tag…">
           <button class="btn-add" id="add-tag">+</button>
         </div></div>
-      <div class="field"><label>Låst dag</label>
-        <select class="inp sel" id="edit-last">${dagOpts}</select></div>
-      <div class="field"><label>Kräver rätt samma vecka</label>
-        <select class="inp sel" id="edit-krav">${this._kravOpts(e.kräver)}</select></div>
+      <div class="field"><label>Locked day</label>
+        <select class="inp sel" id="edit-locked">${dayOpts}</select></div>
+      <div class="field"><label>Requires dish same week</label>
+        <select class="inp sel" id="edit-requires">${this._requiresOpts(e.requires)}</select></div>
       <div class="hdiv"></div>
       <div class="edit-foot">
-        <button class="btn-spara" id="spara-btn">Spara</button>
-        ${!e.isNew?`<button class="btn-bort" id="bort-btn">Ta bort</button>`:''}
+        <button class="btn-save" id="save-btn">Save</button>
+        ${!e.isNew?`<button class="btn-delete" id="delete-btn">Delete</button>`:''}
       </div>
     </div>`;
   }
 
-  // ── Taggar ────────────────────────────────────────────────────
+  // ── Tags ──────────────────────────────────────────────────────
 
-  _taggarHTML() {
+  _tagsHTML() {
     if (this._editingTag) return this._tagEditFormHTML();
 
-    const cnt = this._taggRakning();
-    const tags = Object.entries(cnt).sort(([a],[b])=>a.localeCompare(b,'sv'));
+    const cnt = this._tagCounts();
 
-    // Visa alla kända taggar (inkl. de som inte används)
-    const allKnown = this._allaTagger();
+    // Show all known tags (including unused ones)
+    const allKnown = this._allTags();
     const allRows = allKnown.map(tag => {
       const n = cnt[tag] || 0;
       return `<div class="tag-item">
         <span class="tag-pill${n===0?' tag-pill-unused':''}">${tag}</span>
-        <span class="tag-cnt">${n===0?'används ej':`${n} rätt${n!==1?'er':''}`}</span>
+        <span class="tag-cnt">${n===0?'unused':`${n} dish${n!==1?'es':''}`}</span>
         <div class="actions">
           <button class="icon-btn edit-tag-btn" data-tag="${tag}">${this._iEdit()}</button>
           <button class="icon-btn del-tag-btn txt-btn" data-tag="${tag}">✕</button>
@@ -229,10 +228,10 @@ class MealSolverCard extends HTMLElement {
       ${allRows}
       <div class="hdiv"></div>
       <div class="field">
-        <label>Ny tagg</label>
+        <label>New tag</label>
         <div class="tag-row">
-          <input class="inp tag-inp" id="ny-tagg-inp" type="text" placeholder="Skriv taggnamn…" autocomplete="off">
-          <button class="btn-add" id="ny-tagg-btn">+</button>
+          <input class="inp tag-inp" id="new-tag-inp" type="text" placeholder="Enter tag name…" autocomplete="off">
+          <button class="btn-add" id="new-tag-btn">+</button>
         </div>
       </div>
     </div>`;
@@ -242,16 +241,16 @@ class MealSolverCard extends HTMLElement {
     const t = this._editingTag;
     return `<div class="wrap">
       <div class="edit-head">
-        <span>Byt namn på tagg</span>
+        <span>Rename tag</span>
         <button class="icon-btn txt-btn" id="cancel-tag-btn">✕</button>
       </div><div class="hdiv"></div>
-      <div class="field"><label>Nuvarande namn</label>
-        <div style="padding:6px 0"><span class="tag-pill">${t.gammalt}</span></div></div>
-      <div class="field"><label>Nytt namn</label>
-        <input class="inp" id="tag-nytt-namn" type="text" value="${t.gammalt}" autocomplete="off"></div>
+      <div class="field"><label>Current name</label>
+        <div style="padding:6px 0"><span class="tag-pill">${t.oldName}</span></div></div>
+      <div class="field"><label>New name</label>
+        <input class="inp" id="tag-new-name" type="text" value="${t.oldName}" autocomplete="off"></div>
       <div class="hdiv"></div>
       <div class="edit-foot">
-        <button class="btn-spara" id="spara-tag-btn">Spara</button>
+        <button class="btn-save" id="save-tag-btn">Save</button>
       </div>
     </div>`;
   }
@@ -263,15 +262,15 @@ class MealSolverCard extends HTMLElement {
     sr.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>{
       this._tab=b.dataset.tab; this._editing=null; this._editingTag=null; this._render();
     }));
-    if (this._tab==='vecka')  this._veckaEvents();
-    else if (this._tab==='lista') this._listaEvents();
-    else this._taggarEvents();
+    if (this._tab==='vecka')  this._weekEvents();
+    else if (this._tab==='lista') this._listEvents();
+    else this._tagsEvents();
   }
 
-  _veckaEvents() {
+  _weekEvents() {
     const sr=this.shadowRoot;
-    sr.getElementById('slumpa-btn')?.addEventListener('click',()=>
-      this._hass.callService('meal_solver_3000','generera_vecka',{}));
+    sr.getElementById('shuffle-btn')?.addEventListener('click',()=>
+      this._hass.callService('meal_solver_3000','generate_week',{}));
     sr.querySelectorAll('.lock-btn').forEach(b=>b.addEventListener('click',e=>{
       const id=e.currentTarget.dataset.id, on=e.currentTarget.dataset.locked==='true';
       this._hass.callService('input_boolean',on?'turn_off':'turn_on',{entity_id:`input_boolean.${id}_last`});
@@ -280,30 +279,30 @@ class MealSolverCard extends HTMLElement {
       this._startInlineEdit(e.currentTarget.dataset.id,e.currentTarget.dataset.meal)));
   }
 
-  _listaEvents() {
+  _listEvents() {
     const sr=this.shadowRoot;
 
-    // Blockera re-render medan select är öppen
+    // Block re-render while select is open
     sr.querySelectorAll('.sel').forEach(sel=>{
-      sel.addEventListener('focus', ()=>{ this._listaActive=true; });
-      sel.addEventListener('blur',  ()=>{ this._listaActive=false; });
+      sel.addEventListener('focus', ()=>{ this._listActive=true; });
+      sel.addEventListener('blur',  ()=>{ this._listActive=false; });
     });
 
-    sr.getElementById('kat-select')?.addEventListener('change',e=>{
-      this._listaActive=false; this._kat=e.target.value; this._render();
+    sr.getElementById('cat-select')?.addEventListener('change',e=>{
+      this._listActive=false; this._category=e.target.value; this._render();
     });
-    sr.getElementById('ratt-select')?.addEventListener('change',e=>{
-      this._listaActive=false;
-      const namn=e.target.value; if(!namn) return;
-      const d=this._matratter()[namn]||{};
-      this._editing={gammaltNamn:namn,namn,dagar:d.dagar||'vardag',
-        taggar:new Set(d.taggar||[]),låst_dag:d.låst_dag||'',
-        kräver:d.kräver||'',isNew:false};
+    sr.getElementById('dish-select')?.addEventListener('change',e=>{
+      this._listActive=false;
+      const name=e.target.value; if(!name) return;
+      const d=this._dishes()[name]||{};
+      this._editing={oldName:name,name,days:d.dagar||'vardag',
+        tags:new Set(d.taggar||[]),lockedDay:d.låst_dag||'',
+        requires:d.kräver||'',isNew:false};
       this._render();
     });
-    sr.getElementById('ny-btn')?.addEventListener('click',()=>{
-      this._editing={gammaltNamn:'',namn:'',dagar:this._kat||'vardag',
-        taggar:new Set(),låst_dag:'',kräver:'',isNew:true};
+    sr.getElementById('new-btn')?.addEventListener('click',()=>{
+      this._editing={oldName:'',name:'',days:this._category||'vardag',
+        tags:new Set(),lockedDay:'',requires:'',isNew:true};
       this._render();
     });
     if (this._editing) this._editFormEvents();
@@ -315,62 +314,62 @@ class MealSolverCard extends HTMLElement {
 
     sr.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{
       const t=c.dataset.tag;
-      e.taggar.has(t)?(e.taggar.delete(t),c.classList.remove('on')):(e.taggar.add(t),c.classList.add('on'));
+      e.tags.has(t)?(e.tags.delete(t),c.classList.remove('on')):(e.tags.add(t),c.classList.add('on'));
     }));
 
     const addTag=()=>{
       const inp=sr.getElementById('new-tag'), t=inp.value.trim().toLowerCase(); if(!t) return;
-      e.taggar.add(t); inp.value='';
+      e.tags.add(t); inp.value='';
       const c=document.createElement('span');
       c.className='chip on'; c.dataset.tag=t; c.textContent=t;
-      c.addEventListener('click',()=>{e.taggar.delete(t);c.classList.remove('on');});
+      c.addEventListener('click',()=>{e.tags.delete(t);c.classList.remove('on');});
       sr.getElementById('chips').appendChild(c);
     };
     sr.getElementById('add-tag')?.addEventListener('click',addTag);
     sr.getElementById('new-tag')?.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();addTag();}});
 
-    sr.getElementById('spara-btn')?.addEventListener('click',()=>{
-      const namn=sr.getElementById('edit-namn').value.trim();
-      const dagar=sr.querySelector('input[name="ed"]:checked')?.value||e.dagar;
-      const taggar=[...e.taggar];
-      const last_dag=sr.getElementById('edit-last').value;
-      const krav=sr.getElementById('edit-krav').value;
-      if(!namn) return;
-      const svc=e.isNew?'lagg_till_ratt':'uppdatera_ratt';
+    sr.getElementById('save-btn')?.addEventListener('click',()=>{
+      const name=sr.getElementById('edit-name').value.trim();
+      const days=sr.querySelector('input[name="ed"]:checked')?.value||e.days;
+      const tags=[...e.tags];
+      const locked_day=sr.getElementById('edit-locked').value;
+      const requires=sr.getElementById('edit-requires').value;
+      if(!name) return;
+      const svc=e.isNew?'add_dish':'update_dish';
       const data=e.isNew
-        ?{namn,dagar,taggar,...(last_dag?{låst_dag:last_dag}:{}),...(krav?{kräver:krav}:{})}
-        :{gammalt_namn:e.gammaltNamn,namn,dagar,taggar,...(last_dag?{låst_dag:last_dag}:{}),...(krav?{kräver:krav}:{})};
+        ?{name,days,tags,...(locked_day?{locked_day}:{}),...(requires?{requires}:{})}
+        :{old_name:e.oldName,name,days,tags,...(locked_day?{locked_day}:{}),...(requires?{requires}:{})};
       this._hass.callService('meal_solver_3000',svc,data);
       this._editing=null; this._render();
     });
-    sr.getElementById('bort-btn')?.addEventListener('click',()=>{
-      this._hass.callService('meal_solver_3000','ta_bort_ratt',{namn:e.gammaltNamn});
+    sr.getElementById('delete-btn')?.addEventListener('click',()=>{
+      this._hass.callService('meal_solver_3000','remove_dish',{name:e.oldName});
       this._editing=null; this._render();
     });
 
-    // Blockera re-render på select i edit-form
+    // Block re-render on select in edit form
     sr.querySelectorAll('.sel').forEach(sel=>{
-      sel.addEventListener('focus',()=>{this._listaActive=true;});
-      sel.addEventListener('blur', ()=>{this._listaActive=false;});
+      sel.addEventListener('focus',()=>{this._listActive=true;});
+      sel.addEventListener('blur', ()=>{this._listActive=false;});
     });
   }
 
-  _taggarEvents() {
+  _tagsEvents() {
     const sr=this.shadowRoot;
 
     if (this._editingTag) {
-      const inp=sr.getElementById('tag-nytt-namn');
+      const inp=sr.getElementById('tag-new-name');
       inp?.focus(); inp?.select();
       sr.getElementById('cancel-tag-btn')?.addEventListener('click',()=>{this._editingTag=null;this._render();});
-      sr.getElementById('spara-tag-btn')?.addEventListener('click',()=>{
-        const nytt=sr.getElementById('tag-nytt-namn').value.trim();
-        if(nytt && nytt!==this._editingTag.gammalt)
-          this._hass.callService('meal_solver_3000','byt_namn_pa_tagg',
-            {gammalt_namn:this._editingTag.gammalt,nytt_namn:nytt});
+      sr.getElementById('save-tag-btn')?.addEventListener('click',()=>{
+        const newName=sr.getElementById('tag-new-name').value.trim();
+        if(newName && newName!==this._editingTag.oldName)
+          this._hass.callService('meal_solver_3000','rename_tag',
+            {old_name:this._editingTag.oldName,new_name:newName});
         this._editingTag=null; this._render();
       });
       inp?.addEventListener('keydown',ev=>{
-        if(ev.key==='Enter'){sr.getElementById('spara-tag-btn').click();}
+        if(ev.key==='Enter'){sr.getElementById('save-tag-btn').click();}
         if(ev.key==='Escape'){this._editingTag=null;this._render();}
       });
       return;
@@ -378,37 +377,37 @@ class MealSolverCard extends HTMLElement {
 
     sr.querySelectorAll('.edit-tag-btn').forEach(b=>b.addEventListener('click',e=>{
       const tag=e.currentTarget.dataset.tag;
-      this._editingTag={gammalt:tag}; this._render();
+      this._editingTag={oldName:tag}; this._render();
     }));
     sr.querySelectorAll('.del-tag-btn').forEach(b=>b.addEventListener('click',e=>{
       const tag=e.currentTarget.dataset.tag;
-      this._hass.callService('meal_solver_3000','ta_bort_tagg',{namn:tag});
+      this._hass.callService('meal_solver_3000','remove_tag',{name:tag});
     }));
 
-    // Ny tagg
-    const addNyTagg = () => {
-      const inp = sr.getElementById('ny-tagg-inp');
-      const namn = inp.value.trim().toLowerCase();
-      if (!namn) return;
-      this._hass.callService('meal_solver_3000','skapa_tagg',{namn});
+    // New tag
+    const addNewTag = () => {
+      const inp = sr.getElementById('new-tag-inp');
+      const name = inp.value.trim().toLowerCase();
+      if (!name) return;
+      this._hass.callService('meal_solver_3000','create_tag',{name});
       inp.value = '';
     };
-    sr.getElementById('ny-tagg-btn')?.addEventListener('click', addNyTagg);
-    sr.getElementById('ny-tagg-inp')?.addEventListener('keydown', ev => {
-      if (ev.key === 'Enter') { ev.preventDefault(); addNyTagg(); }
+    sr.getElementById('new-tag-btn')?.addEventListener('click', addNewTag);
+    sr.getElementById('new-tag-inp')?.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter') { ev.preventDefault(); addNewTag(); }
     });
-    // Blockera re-render medan inputfältet är aktivt
-    sr.getElementById('ny-tagg-inp')?.addEventListener('focus', ()=>{ this._listaActive=true; });
-    sr.getElementById('ny-tagg-inp')?.addEventListener('blur',  ()=>{ this._listaActive=false; });
+    // Block re-render while input field is active
+    sr.getElementById('new-tag-inp')?.addEventListener('focus', ()=>{ this._listActive=true; });
+    sr.getElementById('new-tag-inp')?.addEventListener('blur',  ()=>{ this._listActive=false; });
   }
 
-  // ── Veckoplan inline edit ─────────────────────────────────────
+  // ── Week plan inline edit ─────────────────────────────────────
 
   _startInlineEdit(id,currentMeal) {
     this._editingDay=id;
     const row=this.shadowRoot.querySelector(`.row[data-id="${id}"]`); if(!row) return;
-    row.querySelector('.ratt').innerHTML=`<input class="edit-input" type="text" value="${currentMeal}">`;
-    row.querySelector('.actions').innerHTML=`<button class="save-btn">Spara</button>`;
+    row.querySelector('.dish').innerHTML=`<input class="edit-input" type="text" value="${currentMeal}">`;
+    row.querySelector('.actions').innerHTML=`<button class="save-btn">Save</button>`;
     const input=row.querySelector('.edit-input'); input.focus(); input.select();
     const save=()=>{
       const val=input.value.trim();
@@ -433,15 +432,15 @@ class MealSolverCard extends HTMLElement {
     .tab-btn.active{color:var(--primary-color,#03a9f4);border-bottom-color:var(--primary-color,#03a9f4);font-weight:500}
     .week-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px}
     .title{font-size:15px;font-weight:500;color:var(--primary-text-color)}
-    .btn-slumpa{display:flex;align-items:center;gap:6px;font-size:12px;padding:5px 10px;border:0.5px solid var(--divider-color);border-radius:8px;background:transparent;color:var(--primary-text-color);cursor:pointer}
-    .btn-slumpa:hover{background:var(--secondary-background-color)}
+    .btn-shuffle{display:flex;align-items:center;gap:6px;font-size:12px;padding:5px 10px;border:0.5px solid var(--divider-color);border-radius:8px;background:transparent;color:var(--primary-text-color);cursor:pointer}
+    .btn-shuffle:hover{background:var(--secondary-background-color)}
     .row{display:flex;align-items:center;padding:9px 16px;gap:10px;border-bottom:0.5px solid var(--divider-color)}
-    .dag{font-size:12px;color:var(--secondary-text-color);width:32px;flex-shrink:0}
-    .ratt{flex:1;font-size:14px;color:var(--primary-text-color)}
+    .day{font-size:12px;color:var(--secondary-text-color);width:32px;flex-shrink:0}
+    .dish{flex:1;font-size:14px;color:var(--primary-text-color)}
     .badge{font-size:10px;padding:2px 7px;border-radius:6px;flex-shrink:0}
     .badge-helg{background:#E1F5EE;color:#0F6E56}
     .badge-vardag{background:#E6F1FB;color:#185FA5}
-    .badge-last{background:#FAEEDA;color:#854F0B}
+    .badge-locked{background:#FAEEDA;color:#854F0B}
     .actions{display:flex;gap:4px;flex-shrink:0}
     .icon-btn{width:28px;height:28px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:6px;color:var(--secondary-text-color);padding:0}
     .icon-btn:hover{background:var(--secondary-background-color)}
@@ -462,8 +461,8 @@ class MealSolverCard extends HTMLElement {
     .stat-total{background:var(--secondary-background-color);color:var(--primary-text-color)}
     .stat-vardag{background:#E6F1FB;color:#185FA5}
     .stat-helg{background:#E1F5EE;color:#0F6E56}
-    .stat-bada{background:#F3EEFF;color:#5B2DAB}
-    .btn-ny{align-self:flex-start;font-size:12px;padding:6px 12px;border:0.5px solid var(--primary-color,#03a9f4);border-radius:8px;background:transparent;color:var(--primary-color,#03a9f4);cursor:pointer}
+    .stat-both{background:#F3EEFF;color:#5B2DAB}
+    .btn-new{align-self:flex-start;font-size:12px;padding:6px 12px;border:0.5px solid var(--primary-color,#03a9f4);border-radius:8px;background:transparent;color:var(--primary-color,#03a9f4);cursor:pointer}
     .edit-head{display:flex;align-items:center;justify-content:space-between}
     .edit-head span{font-size:14px;font-weight:500;color:var(--primary-text-color)}
     .radio-row{display:flex;gap:16px}
@@ -475,10 +474,10 @@ class MealSolverCard extends HTMLElement {
     .tag-inp{flex:1;width:auto}
     .btn-add{padding:0 14px;border:0.5px solid var(--divider-color);border-radius:8px;background:transparent;color:var(--primary-text-color);cursor:pointer;font-size:18px;line-height:1}
     .edit-foot{display:flex;gap:8px}
-    .btn-spara{flex:1;padding:9px;border:none;background:var(--primary-color,#03a9f4);color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500}
-    .btn-spara:hover{opacity:.9}
-    .btn-bort{padding:9px 16px;border:0.5px solid #ef5350;border-radius:8px;background:transparent;color:#ef5350;cursor:pointer;font-size:13px}
-    .btn-bort:hover{background:#ffebee}
+    .btn-save{flex:1;padding:9px;border:none;background:var(--primary-color,#03a9f4);color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500}
+    .btn-save:hover{opacity:.9}
+    .btn-delete{padding:9px 16px;border:0.5px solid #ef5350;border-radius:8px;background:transparent;color:#ef5350;cursor:pointer;font-size:13px}
+    .btn-delete:hover{background:#ffebee}
     .tag-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--divider-color)}
     .tag-item:last-child{border-bottom:none}
     .tag-pill{font-size:12px;padding:3px 10px;border-radius:20px;background:var(--secondary-background-color);border:0.5px solid var(--divider-color);color:var(--primary-text-color)}
@@ -492,6 +491,6 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'meal-solver-card',
   name: 'Meal Solver 3000',
-  description: 'Veckans middagar med slumpning, låsning, matlista och taggar'
+  description: 'Week plan with shuffle, locking, dish list and tags'
 });
 // v4
