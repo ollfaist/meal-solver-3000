@@ -140,9 +140,22 @@ def _load_historik():
     with open(HISTORIK_FILE, encoding="utf-8") as f:
         return json.load(f)
 
-def _save_historik(plan):
+def _denna_vecka_sparad():
+    """Returnerar True om historiken redan har en post från denna ISO-vecka."""
     historik = _load_historik()
-    historik.append({"datum": date.today().isoformat(), "plan": plan})
+    if not historik:
+        return False
+    today = date.today()
+    last = date.fromisoformat(historik[-1]["datum"])
+    return last.isocalendar()[:2] == today.isocalendar()[:2]
+
+def _save_historik(plan):
+    real_plan = {dag: ratt for dag, ratt in plan.items()
+                 if ratt and ratt not in ("-", "unknown", "")}
+    if len(real_plan) < 3:
+        return
+    historik = _load_historik()
+    historik.append({"datum": date.today().isoformat(), "plan": real_plan})
     with open(HISTORIK_FILE, "w", encoding="utf-8") as f:
         json.dump(historik, f, ensure_ascii=False, indent=2)
 
@@ -271,14 +284,16 @@ async def async_setup(hass, config):
                 if ts and ts.state not in ("", "unknown"):
                     lasta_rattter[dag] = ts.state
 
-        # Spara nuvarande vecka till historik innan ny plan genereras
-        current_plan = {}
-        for dag, (text_eid, _) in DAG_ENTITY.items():
-            ts = hass.states.get(text_eid)
-            if ts and ts.state not in ("", "unknown"):
-                current_plan[dag] = ts.state
-        if current_plan:
-            await hass.async_add_executor_job(_save_historik, current_plan)
+        # Spara nuvarande vecka till historik — bara om den inte redan sparats denna vecka
+        already_saved = await hass.async_add_executor_job(_denna_vecka_sparad)
+        if not already_saved:
+            current_plan = {}
+            for dag, (text_eid, _) in DAG_ENTITY.items():
+                ts = hass.states.get(text_eid)
+                if ts and ts.state not in ("", "unknown"):
+                    current_plan[dag] = ts.state
+            if current_plan:
+                await hass.async_add_executor_job(_save_historik, current_plan)
 
         plan = await hass.async_add_executor_job(_solve, lasta_rattter, regler)
         if plan is None:
