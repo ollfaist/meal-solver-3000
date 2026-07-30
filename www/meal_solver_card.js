@@ -146,7 +146,7 @@ class MealSolverCard extends HTMLElement {
     let dishSelect = '';
     if (this._category) {
       const dishList = Object.entries(dishes)
-        .filter(([,d])=>this._category==='båda'||d.dagar===this._category||d.dagar==='båda')
+        .filter(([,d])=>this._category==='båda'?d.dagar==='båda':(d.dagar===this._category||d.dagar==='båda'))
         .sort(([a],[b])=>a.localeCompare(b,'sv'));
       dishSelect = `<div class="field"><label>Dish</label>
         <select id="dish-select" class="sel">
