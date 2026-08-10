@@ -41,11 +41,18 @@ _OPTION_DEFAULTS = {
 
 # ── Dish file I/O ─────────────────────────────────────────────────────────────
 
+def _ensure_base_dir():
+    BASE.mkdir(parents=True, exist_ok=True)
+    if not DISHES_FILE.exists():
+        DISHES_FILE.write_text("{}\n", encoding="utf-8")
+
 def _load_dishes() -> dict:
+    _ensure_base_dir()
     with open(DISHES_FILE, encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
 def _save_dishes(dishes: dict):
+    _ensure_base_dir()
     with open(DISHES_FILE, "w", encoding="utf-8") as f:
         yaml.dump(dishes, f, allow_unicode=True, default_flow_style=False, sort_keys=True)
 
