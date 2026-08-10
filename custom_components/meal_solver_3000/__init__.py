@@ -15,9 +15,6 @@ RULES_FILE   = BASE / "regler.yaml"
 HISTORY_FILE = BASE / "historik.json"
 TAGS_FILE    = BASE / "taggar.json"
 
-_DEFAULT_TAGS = ["köttfärs","nöt","fläsk","fågel","fisk","vegetarisk","korv","lamm",
-                 "potatis","ris","pasta","nudlar"]
-
 WEEKDAY_DAYS = ["måndag", "tisdag", "onsdag", "torsdag"]
 WEEKEND_DAYS = ["fredag", "lördag", "söndag"]
 ALL_DAYS     = WEEKDAY_DAYS + WEEKEND_DAYS
@@ -32,12 +29,7 @@ DAY_ENTITY = {
     "söndag":  ("input_text.sondag_middag",  "input_boolean.sondag_last"),
 }
 
-_OPTION_DEFAULTS = {
-    "max_rules":       "köttfärs:2, fisk:1",
-    "min_rules":       "vegetarisk:1",
-    "no_consecutive":  "potatis, ris, pasta, nudlar",
-    "repeat_interval": 14,
-}
+_DEFAULT_REPEAT_INTERVAL = 14
 
 _WEEKDAY_TO_INT = {
     "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
@@ -64,13 +56,13 @@ def _save_dishes(dishes: dict):
 
 def _load_tags() -> list:
     if not TAGS_FILE.exists():
-        # Seed from default list + tags already present in dishes file
+        # Seed only from tags the dishes file already uses. A fresh install
+        # starts empty — the user builds their own vocabulary.
         try:
             m = _load_dishes()
-            extra = {t for d in m.values() for t in d.get("taggar", [])}
+            tags = sorted({t for d in m.values() for t in d.get("taggar", [])})
         except Exception:
-            extra = set()
-        tags = sorted(set(_DEFAULT_TAGS) | extra)
+            tags = []
         _save_tags(tags)
         return tags
     with open(TAGS_FILE, encoding="utf-8") as f:
@@ -133,15 +125,14 @@ def _build_rules(opts: dict) -> dict:
     except Exception:
         yaml_rules = {}
 
+    # Options win, then regler.yaml. An unset field means "no constraint" —
+    # never a hidden built-in rule the user didn't ask for.
     max_per_week = (_parse_tag_rules(opts["max_rules"]) if "max_rules" in opts
-                    else yaml_rules.get("max_per_week",
-                         _parse_tag_rules(_OPTION_DEFAULTS["max_rules"])))
+                    else yaml_rules.get("max_per_week", {}))
     min_per_week = (_parse_tag_rules(opts["min_rules"]) if "min_rules" in opts
-                    else yaml_rules.get("min_per_week",
-                         _parse_tag_rules(_OPTION_DEFAULTS["min_rules"])))
+                    else yaml_rules.get("min_per_week", {}))
     no_consecutive = (_parse_list(opts["no_consecutive"]) if "no_consecutive" in opts
-                      else yaml_rules.get("no_consecutive",
-                           _parse_list(_OPTION_DEFAULTS["no_consecutive"])))
+                      else yaml_rules.get("no_consecutive", []))
 
     return {
         "max_per_week": max_per_week,
@@ -149,7 +140,7 @@ def _build_rules(opts: dict) -> dict:
         "no_consecutive": no_consecutive,
         "repeat_interval_days": opts.get("repeat_interval",
                                   yaml_rules.get("repeat_interval_days",
-                                  _OPTION_DEFAULTS["repeat_interval"])),
+                                  _DEFAULT_REPEAT_INTERVAL)),
         "max_attempts": yaml_rules.get("max_attempts", 1000),
     }
 

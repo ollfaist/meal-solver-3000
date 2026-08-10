@@ -25,9 +25,9 @@
           "shuffle_time":     "Slumptid (HH:MM)"
         },
         "data_description": {
-          "max_rules":        "Hur många gånger en tagg får förekomma per vecka. Format: tagg:antal — t.ex. 'köttfärs:2, fisk:1' innebär max 2 köttfärsrätter och 1 fiskrätt per vecka.",
-          "min_rules":        "Hur många gånger en tagg måste förekomma per vecka. Format: tagg:antal — t.ex. 'vegetarisk:1' kräver minst en vegetarisk rätt.",
-          "no_consecutive":   "Taggar som inte får dyka upp två dagar i rad. T.ex. 'potatis, ris, pasta' hindrar att samma typ av sidorätt serveras flera dagar i följd.",
+          "max_rules":        "Hur många gånger en tagg får förekomma per vecka. Format: tagg:antal — t.ex. 'köttfärs:2, fisk:1' innebär max 2 köttfärsrätter och 1 fiskrätt per vecka. Lämna tomt för ingen övre gräns.",
+          "min_rules":        "Hur många gånger en tagg måste förekomma per vecka. Format: tagg:antal — t.ex. 'vegetarisk:1' kräver minst en vegetarisk rätt. Lämna tomt för inget krav.",
+          "no_consecutive":   "Taggar som inte får dyka upp två dagar i rad. Format: kommaseparerad lista — t.ex. 'potatis, ris, pasta' hindrar att samma typ av sidorätt serveras flera dagar i följd. Lämna tomt för att tillåta allt.",
           "repeat_interval":  "Antal dagar en rätt måste vila innan den kan slumpas igen. T.ex. 14 innebär att samma rätt inte dyker upp igen förrän om minst 2 veckor. Sätt 0 för att stänga av.",
           "language":         "Språk som används i Lovelace-kortet. sv = Svenska, en = English.",
           "auto_shuffle":     "När aktiverad genererar Meal Solver automatiskt en ny veckoplan på den inställda dagen och tiden. Stäng av om du föredrar att slumpa manuellt.",

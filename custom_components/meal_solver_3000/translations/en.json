@@ -25,9 +25,9 @@
           "shuffle_time":     "Shuffle time (HH:MM)"
         },
         "data_description": {
-          "max_rules":        "How many times a tag may appear per week. Format: tag:count — e.g. 'köttfärs:2, fisk:1' means max 2 minced-meat dishes and 1 fish dish per week.",
-          "min_rules":        "How many times a tag must appear per week. Format: tag:count — e.g. 'vegetarisk:1' requires at least one vegetarian dish.",
-          "no_consecutive":   "Tags that cannot appear on back-to-back days. E.g. 'potatis, ris, pasta' prevents the same side dish two days in a row.",
+          "max_rules":        "How many times a tag may appear per week. Format: tag:count — e.g. 'beef:2, fish:1' means max 2 beef dishes and 1 fish dish per week. Leave empty for no upper limit.",
+          "min_rules":        "How many times a tag must appear per week. Format: tag:count — e.g. 'vegetarian:1' requires at least one vegetarian dish. Leave empty for no requirement.",
+          "no_consecutive":   "Tags that cannot appear on back-to-back days. Format: comma-separated list — e.g. 'potato, rice, pasta' prevents the same side dish two days in a row. Leave empty to allow anything.",
           "repeat_interval":  "Days a dish must rest before it can be randomized again. E.g. 14 means the same dish won't appear for at least 2 weeks. Set to 0 to disable.",
           "language":         "Language used in the Lovelace card. sv = Svenska, en = English.",
           "auto_shuffle":     "When enabled, Meal Solver automatically generates a new week plan on the configured day and time. Disable if you prefer to shuffle manually only.",

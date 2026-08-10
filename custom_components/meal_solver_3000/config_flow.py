@@ -6,10 +6,9 @@ DOMAIN = "meal_solver_3000"
 
 WEEKDAYS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
 
+# Real defaults only. The rule fields deliberately have none — an empty field
+# means "no rule", and the examples live in the field descriptions instead.
 DEFAULTS = {
-    "max_rules":        "köttfärs:2, fisk:1",
-    "min_rules":        "vegetarisk:1",
-    "no_consecutive":   "potatis, ris, pasta, nudlar",
     "repeat_interval":  14,
     "language":         "sv",
     "auto_shuffle":     True,
@@ -74,15 +73,15 @@ class MealSolverOptionsFlow(config_entries.OptionsFlow):
 
         schema = vol.Schema({
             vol.Optional("max_rules",
-                         default=opts.get("max_rules", DEFAULTS["max_rules"])):
+                         description={"suggested_value": opts.get("max_rules", "")}):
                 str,
 
             vol.Optional("min_rules",
-                         default=opts.get("min_rules", DEFAULTS["min_rules"])):
+                         description={"suggested_value": opts.get("min_rules", "")}):
                 str,
 
             vol.Optional("no_consecutive",
-                         default=opts.get("no_consecutive", DEFAULTS["no_consecutive"])):
+                         description={"suggested_value": opts.get("no_consecutive", "")}):
                 str,
 
             vol.Optional("repeat_interval",
