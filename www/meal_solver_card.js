@@ -98,6 +98,7 @@ class MealSolverCard extends HTMLElement {
     this._category    = '';
     this._editing     = null;   // dish list edit form
     this._editingTag  = null;   // tag inline rename { oldName, newName }
+    this._expandedTag = null;   // tag with dish list expanded
     this._listActive  = false;  // select in list/tags tab is open → block re-render
   }
 
@@ -311,18 +312,35 @@ class MealSolverCard extends HTMLElement {
     if (this._editingTag) return this._tagEditFormHTML();
 
     const cnt = this._tagCounts();
+    const dishes = this._dishes();
 
-    // Show all known tags (including unused ones)
     const allKnown = this._allTags();
     const allRows = allKnown.map(tag => {
       const n = cnt[tag] || 0;
-      return `<div class="tag-item">
-        <span class="tag-pill${n===0?' tag-pill-unused':''}">${tag}</span>
-        <span class="tag-cnt">${n===0?this._t('unused'):`${n} ${n!==1?this._t('dish_count_n'):this._t('dish_count_1')}`}</span>
-        <div class="actions">
-          <button class="icon-btn edit-tag-btn" data-tag="${tag}">${this._iEdit()}</button>
-          <button class="icon-btn del-tag-btn txt-btn" data-tag="${tag}">✕</button>
+      const isExpanded = this._expandedTag === tag;
+      const cntLabel = n === 0 ? this._t('unused')
+                     : `${n} ${n !== 1 ? this._t('dish_count_n') : this._t('dish_count_1')}`;
+
+      const dishesWithTag = n > 0
+        ? Object.entries(dishes)
+            .filter(([,d]) => (d.taggar||[]).includes(tag))
+            .sort(([a],[b]) => a.localeCompare(b,'sv'))
+            .map(([name]) => `<div class="tag-dish-item">${name}</div>`)
+            .join('')
+        : '';
+
+      return `<div class="tag-item${isExpanded?' tag-item-open':''}" data-tag="${tag}">
+        <div class="tag-item-row">
+          <span class="tag-pill${n===0?' tag-pill-unused':''}">${tag}</span>
+          <button class="tag-cnt-btn${n>0?' tag-cnt-clickable':''}" data-tag="${tag}" ${n===0?'disabled':''}>
+            ${cntLabel}${n>0?`<span class="tag-chevron">${isExpanded?'▲':'▼'}</span>`:''}
+          </button>
+          <div class="actions">
+            <button class="icon-btn edit-tag-btn" data-tag="${tag}">${this._iEdit()}</button>
+            <button class="icon-btn del-tag-btn txt-btn" data-tag="${tag}">✕</button>
+          </div>
         </div>
+        ${isExpanded && dishesWithTag ? `<div class="tag-dish-list">${dishesWithTag}</div>` : ''}
       </div>`;
     }).join('');
 
@@ -477,6 +495,11 @@ class MealSolverCard extends HTMLElement {
       return;
     }
 
+    sr.querySelectorAll('.tag-cnt-btn.tag-cnt-clickable').forEach(b=>b.addEventListener('click',e=>{
+      const tag=e.currentTarget.dataset.tag;
+      this._expandedTag = this._expandedTag===tag ? null : tag;
+      this._render();
+    }));
     sr.querySelectorAll('.edit-tag-btn').forEach(b=>b.addEventListener('click',e=>{
       const tag=e.currentTarget.dataset.tag;
       this._editingTag={oldName:tag}; this._render();
@@ -657,8 +680,15 @@ class MealSolverCard extends HTMLElement {
     .btn-save:hover{opacity:.9}
     .btn-delete{padding:9px 16px;border:0.5px solid #ef5350;border-radius:8px;background:transparent;color:#ef5350;cursor:pointer;font-size:13px}
     .btn-delete:hover{background:#ffebee}
-    .tag-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--divider-color)}
+    .tag-item{padding:8px 0;border-bottom:0.5px solid var(--divider-color)}
     .tag-item:last-child{border-bottom:none}
+    .tag-item-row{display:flex;align-items:center;gap:10px}
+    .tag-cnt-btn{background:none;border:none;font-size:12px;color:var(--secondary-text-color);cursor:default;padding:0;display:flex;align-items:center;gap:4px;flex:1;text-align:left}
+    .tag-cnt-btn.tag-cnt-clickable{cursor:pointer;color:var(--primary-color,#03a9f4)}
+    .tag-cnt-btn.tag-cnt-clickable:hover{text-decoration:underline}
+    .tag-chevron{font-size:9px;opacity:.7}
+    .tag-dish-list{padding:6px 0 2px 0;display:flex;flex-wrap:wrap;gap:5px}
+    .tag-dish-item{font-size:12px;padding:3px 8px;background:var(--secondary-background-color);border-radius:6px;color:var(--primary-text-color)}
     .tag-pill{font-size:12px;padding:3px 10px;border-radius:20px;background:var(--secondary-background-color);border:0.5px solid var(--divider-color);color:var(--primary-text-color)}
     .tag-cnt{flex:1;font-size:12px;color:var(--secondary-text-color)}
     .tag-pill-unused{opacity:.45}
