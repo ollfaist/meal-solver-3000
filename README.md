@@ -74,7 +74,7 @@ Lasagne:
 4. Go to **Settings → Devices & Services → + Add integration** → search "Meal Solver 3000"
 5. Create required entities (see below)
 6. Add the Lovelace card resource: **Settings → Dashboards → three-dot menu → Resources**
-   - URL: `/meal_solver_3000/meal_solver_card.js`
+   - URL: `/local/meal_solver_card.js`
    - Type: JavaScript module
 
 ## Manual installation
@@ -84,7 +84,7 @@ Lasagne:
 3. Go to **Settings → Devices & Services → + Add integration** → search "Meal Solver 3000"
 4. Create required entities (see below)
 5. Add the Lovelace card resource: **Settings → Dashboards → three-dot menu → Resources**
-   - URL: `/meal_solver_3000/meal_solver_card.js`
+   - URL: `/local/meal_solver_card.js`
    - Type: JavaScript module
 
 ### Required entities
