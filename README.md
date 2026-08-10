@@ -12,7 +12,7 @@ Smart weekly dinner planner for Home Assistant. Randomizes 7 dinners per week us
 - **Locked days** — lock any day so it's skipped when reshuffling
 - **Permanent day lock** — a dish can be pinned to a specific weekday via `låst_dag` in the YAML (e.g. Tacos always on Friday)
 - **Dish dependency** — a dish can require another dish to be in the same week (`kräver` field)
-- **History** — the current plan is saved at most once per ISO week before a new one is generated, so the repeat interval works across weeks no matter how often you reshuffle
+- **History** — records what was actually eaten. The outgoing plan is archived only at the weekly rollover, immediately before the scheduled shuffle replaces it, so you can reshuffle by hand as often as you like without touching it. With auto-shuffle off, manual runs take over that role, still capped at one entry per ISO week
 - **Tag registry** — manage tags independently of dishes; unused tags shown at reduced opacity
 - **Statistics** — dish count per category (weekday / weekend / both) shown in the dish list
 - **Bilingual** — card UI in Swedish or English

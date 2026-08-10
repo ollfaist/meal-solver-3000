@@ -388,14 +388,21 @@ async def async_setup(hass, config):
                 if ts and ts.state not in ("", "unknown"):
                     locked_dishes[day] = ts.state
 
-        # Archive the outgoing plan before replacing it, at most once per ISO
-        # week. The incoming plan is deliberately NOT saved here — it gets
-        # archived by the next run, once it reflects what was actually eaten.
-        # Saving it now would append an entry on every reshuffle, and each
-        # entry shrinks the candidate pool via the repeat interval until the
-        # solver can no longer find a valid week.
+        # History records the week that was actually eaten, so it is written
+        # only at the weekly rollover — the scheduled run, just before the new
+        # plan replaces the old one. A manual reshuffle mid-week must not
+        # archive anything: the plan on the board then is one the scheduled run
+        # just produced and nobody has eaten yet, and every stray entry shrinks
+        # the candidate pool via the repeat interval.
+        #
+        # With auto-shuffle off there is no scheduled run, so manual shuffles
+        # take over the rollover role — otherwise history would never grow and
+        # the repeat interval would never engage. The ISO-week guard keeps that
+        # to one entry per week either way.
+        scheduled = call.data.get("scheduled", False)
+        archives = scheduled or not opts.get("auto_shuffle", True)
         already_saved = await hass.async_add_executor_job(_this_week_saved)
-        if not already_saved:
+        if archives and not already_saved:
             current_plan = {}
             for day, (text_eid, _) in DAY_ENTITY.items():
                 ts = hass.states.get(text_eid)
@@ -555,7 +562,7 @@ def _register_auto_shuffle(hass, entry):
         if now.weekday() != target_weekday:
             return
         _LOGGER.info("Meal Solver 3000: auto-shuffle triggered (%s %s)", shuffle_weekday, shuffle_time)
-        await hass.services.async_call(DOMAIN, "generate_week", {})
+        await hass.services.async_call(DOMAIN, "generate_week", {"scheduled": True})
 
     store[entry.entry_id] = async_track_time_change(hass, _scheduled_shuffle, hour=h, minute=m, second=0)
 

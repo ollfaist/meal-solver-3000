@@ -1,6 +1,21 @@
 generate_week:
   name: Generate week's dinners
-  description: Randomizes the week's dinners taking into account locked days and rules.
+  description: >-
+    Randomizes the week's dinners taking into account locked days and rules.
+    Called without arguments it only reshuffles; the outgoing plan is archived
+    to history solely at the weekly rollover.
+  fields:
+    scheduled:
+      description: >-
+        Marks this call as the weekly rollover, archiving the outgoing plan to
+        history before replacing it. Set automatically by the built-in
+        auto-shuffle; only pass it yourself if you drive the schedule from your
+        own automation. Ignored when auto-shuffle is off, where every manual
+        run archives once per ISO week.
+      example: true
+      default: false
+      selector:
+        boolean:
 
 add_dish:
   name: Add dish

@@ -1,4 +1,4 @@
-const CARD_VERSION = '1.6.4';
+const CARD_VERSION = '1.6.5';
 
 // Logged so a stale browser-cached copy is identifiable at a glance —
 // compare this against the integration version on the Integrations page.

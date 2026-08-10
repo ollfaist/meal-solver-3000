@@ -1,7 +1,7 @@
 {
   "domain": "meal_solver_3000",
   "name": "Meal Solver 3000",
-  "version": "1.6.4",
+  "version": "1.6.5",
   "documentation": "https://github.com/ollfaist/meal-solver-3000",
   "issue_tracker": "https://github.com/ollfaist/meal-solver-3000/issues",
   "dependencies": [],
