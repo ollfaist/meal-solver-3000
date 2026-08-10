@@ -66,15 +66,26 @@ Lasagne:
   requires: Spagetti & Köttfärssås  # only planned if this dish is also in the week
 ```
 
-## Installation
+## Installation via HACS (recommended)
+
+1. In HACS → three-dot menu → **Custom repositories**
+2. Add `https://github.com/ollfaist/meal-solver-3000` with category **Integration**
+3. Install **Meal Solver 3000** and restart HA
+4. Go to **Settings → Devices & Services → + Add integration** → search "Meal Solver 3000"
+5. Create required entities (see below)
+6. Add the Lovelace card resource: **Settings → Dashboards → three-dot menu → Resources**
+   - URL: `/meal_solver_3000/meal_solver_card.js`
+   - Type: JavaScript module
+
+## Manual installation
 
 1. Copy `custom_components/meal_solver_3000/` to `/config/custom_components/`
-2. Copy `Matlistor/` to `/config/Matlistor/`
-3. Copy `www/meal_solver_card.js` to `/config/www/`
+2. Restart HA
+3. Go to **Settings → Devices & Services → + Add integration** → search "Meal Solver 3000"
 4. Create required entities (see below)
-5. Restart HA
-6. Go to **Settings → Devices & Services → + Add integration** → search "Meal Solver 3000"
-7. Add the Lovelace card resource: `/local/meal_solver_card.js?v=9`
+5. Add the Lovelace card resource: **Settings → Dashboards → three-dot menu → Resources**
+   - URL: `/meal_solver_3000/meal_solver_card.js`
+   - Type: JavaScript module
 
 ### Required entities
 
