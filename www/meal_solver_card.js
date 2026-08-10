@@ -1,3 +1,94 @@
+const I18N = {
+  sv: {
+    tab_week:      'Veckoplan',
+    tab_list:      'Matlistan',
+    tab_tags:      'Taggar',
+    shuffle:       'Slumpa',
+    this_week:     'Veckans middagar',
+    sunday_auto:   'Söndag 17:00',
+    locked:        'låst',
+    loading:       'Laddar matlista…',
+    category:      'Kategori',
+    sel_category:  '— välj kategori —',
+    dish:          'Rätt',
+    sel_dish:      '— välj rätt —',
+    new_dish:      '+ Ny rätt',
+    cat_weekday:   'vardag',
+    cat_weekend:   'helg',
+    cat_both:      'båda',
+    lbl_weekday:   'vardag',
+    lbl_weekend:   'helg',
+    lbl_both:      'båda',
+    stat_total:    'totalt',
+    stat_weekday:  'vardag',
+    stat_weekend:  'helg',
+    stat_both:     'båda',
+    new_dish_hd:   'Ny rätt',
+    edit_dish_hd:  'Redigera',
+    name:          'Namn',
+    days:          'Dagar',
+    tags:          'Taggar',
+    add_tag:       'Lägg till tagg…',
+    locked_day:    'Fast dag',
+    requires:      'Kräver rätt samma vecka',
+    none:          '— ingen —',
+    save:          'Spara',
+    delete:        'Ta bort',
+    new_tag:       'Ny tagg',
+    tag_inp_ph:    'Ange taggnamn…',
+    unused:        'används ej',
+    dish_count_1:  'rätt',
+    dish_count_n:  'rätter',
+    rename_tag:    'Byt namn på tagg',
+    current_name:  'Nuvarande namn',
+    new_name:      'Nytt namn',
+  },
+  en: {
+    tab_week:      'Week plan',
+    tab_list:      'Dish list',
+    tab_tags:      'Tags',
+    shuffle:       'Shuffle',
+    this_week:     "This week's dinners",
+    sunday_auto:   'Sunday 17:00',
+    locked:        'locked',
+    loading:       'Loading dish list…',
+    category:      'Category',
+    sel_category:  '— select category —',
+    dish:          'Dish',
+    sel_dish:      '— select dish —',
+    new_dish:      '+ New dish',
+    cat_weekday:   'vardag',
+    cat_weekend:   'helg',
+    cat_both:      'båda',
+    lbl_weekday:   'weekday',
+    lbl_weekend:   'weekend',
+    lbl_both:      'both',
+    stat_total:    'total',
+    stat_weekday:  'weekday',
+    stat_weekend:  'weekend',
+    stat_both:     'both',
+    new_dish_hd:   'New dish',
+    edit_dish_hd:  'Edit',
+    name:          'Name',
+    days:          'Days',
+    tags:          'Tags',
+    add_tag:       'Add tag…',
+    locked_day:    'Locked day',
+    requires:      'Requires dish same week',
+    none:          '— none —',
+    save:          'Save',
+    delete:        'Delete',
+    new_tag:       'New tag',
+    tag_inp_ph:    'Enter tag name…',
+    unused:        'unused',
+    dish_count_1:  'dish',
+    dish_count_n:  'dishes',
+    rename_tag:    'Rename tag',
+    current_name:  'Current name',
+    new_name:      'New name',
+  },
+};
+
 class MealSolverCard extends HTMLElement {
   constructor() {
     super();
@@ -11,6 +102,13 @@ class MealSolverCard extends HTMLElement {
   }
 
   setConfig(config) { this._config = config; }
+
+  _lang() {
+    const s = this._hass?.states['sensor.meal_solver_matlista'];
+    return s?.attributes?.language || 'sv';
+  }
+
+  _t(key) { return (I18N[this._lang()] || I18N.sv)[key] || key; }
 
   set hass(hass) {
     this._hass = hass;
@@ -60,7 +158,7 @@ class MealSolverCard extends HTMLElement {
       .filter(n => n !== (this._editing?.oldName || ''))
       .map(n => `<option value="${n}"${selected===n?' selected':''}>${n}</option>`)
       .join('');
-    return `<option value="">— none —</option>${opts}`;
+    return `<option value="">${this._t('none')}</option>${opts}`;
   }
 
   _tagCounts() {
@@ -83,7 +181,7 @@ class MealSolverCard extends HTMLElement {
     const tabs = ['vecka','lista','taggar'];
     const tabBar = `<div class="tab-bar">${
       tabs.map(t=>`<button class="tab-btn${this._tab===t?' active':''}" data-tab="${t}">${
-        t==='vecka'?'Veckoplan':t==='lista'?'Matlistan':'Taggar'
+        t==='vecka'?this._t('tab_week'):t==='lista'?this._t('tab_list'):this._t('tab_tags')
       }</button>`).join('')
     }</div><div class="hdiv"></div>`;
 
@@ -100,8 +198,12 @@ class MealSolverCard extends HTMLElement {
   _weekHTML() {
     const rows = this._days().map(({dag,id,typ},i) => {
       const meal=this._meal(id), locked=this._locked(id);
-      const badge = locked ? `<span class="badge badge-locked">locked</span>`
-                           : `<span class="badge badge-${typ}">${typ}</span>`;
+      const badgeLabel = locked ? this._t('locked')
+                               : typ==='vardag' ? this._t('lbl_weekday')
+                               : typ==='helg'   ? this._t('lbl_weekend')
+                               :                  this._t('lbl_both');
+      const badge = locked ? `<span class="badge badge-locked">${badgeLabel}</span>`
+                           : `<span class="badge badge-${typ}">${badgeLabel}</span>`;
       return `${i===4?'<div class="hdiv"></div>':''}
         <div class="row" data-id="${id}">
           <span class="day">${dag.substring(0,3)}</span>
@@ -115,11 +217,11 @@ class MealSolverCard extends HTMLElement {
     }).join('');
     return `
       <div class="week-header">
-        <span class="title">This week's dinners</span>
-        <button class="btn-shuffle" id="shuffle-btn">${this._iRefresh()} Shuffle</button>
+        <span class="title">${this._t('this_week')}</span>
+        <button class="btn-shuffle" id="shuffle-btn">${this._iRefresh()} ${this._t('shuffle')}</button>
       </div>
       <div class="hdiv"></div>${rows}<div class="hdiv"></div>
-      <div class="footer"><span>Meal Solver 3000</span><span>Sunday 17:00</span></div>`;
+      <div class="footer"><span>Meal Solver 3000</span><span>${this._t('sunday_auto')}</span></div>`;
   }
 
   // ── Dish list ─────────────────────────────────────────────────
@@ -128,40 +230,40 @@ class MealSolverCard extends HTMLElement {
     if (this._editing) return this._editFormHTML();
     const dishes = this._dishes();
     if (!this._hass.states['sensor.meal_solver_matlista'])
-      return `<div class="empty">Loading dish list…</div>`;
+      return `<div class="empty">${this._t('loading')}</div>`;
 
     const cnt = { vardag:0, helg:0, båda:0 };
     for (const d of Object.values(dishes)) cnt[d.dagar] = (cnt[d.dagar]||0) + 1;
     const total = Object.keys(dishes).length;
     const stats = `<div class="stats-row">
-      <span class="stat-pill stat-total">${total} total</span>
-      <span class="stat-pill stat-vardag">${cnt.vardag||0} weekday</span>
-      <span class="stat-pill stat-helg">${cnt.helg||0} weekend</span>
-      <span class="stat-pill stat-both">${cnt.båda||0} both</span>
+      <span class="stat-pill stat-total">${total} ${this._t('stat_total')}</span>
+      <span class="stat-pill stat-vardag">${cnt.vardag||0} ${this._t('stat_weekday')}</span>
+      <span class="stat-pill stat-helg">${cnt.helg||0} ${this._t('stat_weekend')}</span>
+      <span class="stat-pill stat-both">${cnt.båda||0} ${this._t('stat_both')}</span>
     </div>`;
 
     const catOpts = ['vardag','helg','båda'].map(k=>
-      `<option value="${k}"${this._category===k?' selected':''}>${k}</option>`).join('');
+      `<option value="${k}"${this._category===k?' selected':''}>${this._t(k==='vardag'?'lbl_weekday':k==='helg'?'lbl_weekend':'lbl_both')}</option>`).join('');
 
     let dishSelect = '';
     if (this._category) {
       const dishList = Object.entries(dishes)
         .filter(([,d])=>this._category==='båda'?d.dagar==='båda':(d.dagar===this._category||d.dagar==='båda'))
         .sort(([a],[b])=>a.localeCompare(b,'sv'));
-      dishSelect = `<div class="field"><label>Dish</label>
+      dishSelect = `<div class="field"><label>${this._t('dish')}</label>
         <select id="dish-select" class="sel">
-          <option value="">— select dish —</option>
+          <option value="">${this._t('sel_dish')}</option>
           ${dishList.map(([n])=>`<option value="${n}">${n}</option>`).join('')}
         </select></div>`;
     }
     return `<div class="wrap">
       ${stats}
-      <div class="field"><label>Category</label>
+      <div class="field"><label>${this._t('category')}</label>
         <select id="cat-select" class="sel">
-          <option value="">— select category —</option>${catOpts}
+          <option value="">${this._t('sel_category')}</option>${catOpts}
         </select></div>
       ${dishSelect}
-      <button class="btn-new" id="new-btn">+ New dish</button>
+      <button class="btn-new" id="new-btn">${this._t('new_dish')}</button>
     </div>`;
   }
 
@@ -172,33 +274,33 @@ class MealSolverCard extends HTMLElement {
       return `<span class="chip${on?' on':''}" data-tag="${t}">${t}</span>`;
     }).join('');
     const dayRadios = ['vardag','helg','båda'].map(d=>
-      `<label class="rl"><input type="radio" name="ed" value="${d}"${e.days===d?' checked':''}> ${d}</label>`
+      `<label class="rl"><input type="radio" name="ed" value="${d}"${e.days===d?' checked':''}> ${this._t(d==='vardag'?'lbl_weekday':d==='helg'?'lbl_weekend':'lbl_both')}</label>`
     ).join('');
     const dayOpts = ['','måndag','tisdag','onsdag','torsdag','fredag','lördag','söndag'].map(d=>
-      `<option value="${d}"${e.lockedDay===d?' selected':''}>${d||'— none —'}</option>`).join('');
+      `<option value="${d}"${e.lockedDay===d?' selected':''}>${d||this._t('none')}</option>`).join('');
     return `<div class="wrap">
       <div class="edit-head">
-        <span>${e.isNew?'New dish':'Edit'}</span>
+        <span>${e.isNew?this._t('new_dish_hd'):this._t('edit_dish_hd')}</span>
         <button class="icon-btn txt-btn" id="cancel-btn">✕</button>
       </div><div class="hdiv"></div>
-      <div class="field"><label>Name</label>
+      <div class="field"><label>${this._t('name')}</label>
         <input class="inp" id="edit-name" type="text" value="${e.name.replace(/"/g,'&quot;')}" autocomplete="off"></div>
-      <div class="field"><label>Days</label>
+      <div class="field"><label>${this._t('days')}</label>
         <div class="radio-row">${dayRadios}</div></div>
-      <div class="field"><label>Tags</label>
+      <div class="field"><label>${this._t('tags')}</label>
         <div class="chips" id="chips">${chips}</div>
         <div class="tag-row">
-          <input class="inp tag-inp" id="new-tag" type="text" placeholder="Add tag…">
+          <input class="inp tag-inp" id="new-tag" type="text" placeholder="${this._t('add_tag')}">
           <button class="btn-add" id="add-tag">+</button>
         </div></div>
-      <div class="field"><label>Locked day</label>
+      <div class="field"><label>${this._t('locked_day')}</label>
         <select class="inp sel" id="edit-locked">${dayOpts}</select></div>
-      <div class="field"><label>Requires dish same week</label>
+      <div class="field"><label>${this._t('requires')}</label>
         <select class="inp sel" id="edit-requires">${this._requiresOpts(e.requires)}</select></div>
       <div class="hdiv"></div>
       <div class="edit-foot">
-        <button class="btn-save" id="save-btn">Save</button>
-        ${!e.isNew?`<button class="btn-delete" id="delete-btn">Delete</button>`:''}
+        <button class="btn-save" id="save-btn">${this._t('save')}</button>
+        ${!e.isNew?`<button class="btn-delete" id="delete-btn">${this._t('delete')}</button>`:''}
       </div>
     </div>`;
   }
@@ -216,7 +318,7 @@ class MealSolverCard extends HTMLElement {
       const n = cnt[tag] || 0;
       return `<div class="tag-item">
         <span class="tag-pill${n===0?' tag-pill-unused':''}">${tag}</span>
-        <span class="tag-cnt">${n===0?'unused':`${n} dish${n!==1?'es':''}`}</span>
+        <span class="tag-cnt">${n===0?this._t('unused'):`${n} ${n!==1?this._t('dish_count_n'):this._t('dish_count_1')}`}</span>
         <div class="actions">
           <button class="icon-btn edit-tag-btn" data-tag="${tag}">${this._iEdit()}</button>
           <button class="icon-btn del-tag-btn txt-btn" data-tag="${tag}">✕</button>
@@ -228,9 +330,9 @@ class MealSolverCard extends HTMLElement {
       ${allRows}
       <div class="hdiv"></div>
       <div class="field">
-        <label>New tag</label>
+        <label>${this._t('new_tag')}</label>
         <div class="tag-row">
-          <input class="inp tag-inp" id="new-tag-inp" type="text" placeholder="Enter tag name…" autocomplete="off">
+          <input class="inp tag-inp" id="new-tag-inp" type="text" placeholder="${this._t('tag_inp_ph')}" autocomplete="off">
           <button class="btn-add" id="new-tag-btn">+</button>
         </div>
       </div>
@@ -241,16 +343,16 @@ class MealSolverCard extends HTMLElement {
     const t = this._editingTag;
     return `<div class="wrap">
       <div class="edit-head">
-        <span>Rename tag</span>
+        <span>${this._t('rename_tag')}</span>
         <button class="icon-btn txt-btn" id="cancel-tag-btn">✕</button>
       </div><div class="hdiv"></div>
-      <div class="field"><label>Current name</label>
+      <div class="field"><label>${this._t('current_name')}</label>
         <div style="padding:6px 0"><span class="tag-pill">${t.oldName}</span></div></div>
-      <div class="field"><label>New name</label>
+      <div class="field"><label>${this._t('new_name')}</label>
         <input class="inp" id="tag-new-name" type="text" value="${t.oldName}" autocomplete="off"></div>
       <div class="hdiv"></div>
       <div class="edit-foot">
-        <button class="btn-save" id="save-tag-btn">Save</button>
+        <button class="btn-save" id="save-tag-btn">${this._t('save')}</button>
       </div>
     </div>`;
   }

@@ -9,6 +9,7 @@ DEFAULTS = {
     "min_rules":       "vegetarisk:1",
     "no_consecutive":  "potatis, ris, pasta, nudlar",
     "repeat_interval": 14,
+    "language":        "sv",
 }
 
 
@@ -82,6 +83,10 @@ class MealSolverOptionsFlow(config_entries.OptionsFlow):
             vol.Optional("repeat_interval",
                          default=opts.get("repeat_interval", DEFAULTS["repeat_interval"])):
                 vol.All(int, vol.Range(min=0, max=365)),
+
+            vol.Optional("language",
+                         default=opts.get("language", DEFAULTS["language"])):
+                vol.In(["sv", "en"]),
         })
 
         return self.async_show_form(step_id="init", data_schema=schema, errors=errors)

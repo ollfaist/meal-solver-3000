@@ -18,13 +18,15 @@
           "max_rules":       "Max per week",
           "min_rules":       "Min per week",
           "no_consecutive":  "No consecutive side dishes",
-          "repeat_interval": "Repeat interval (days)"
+          "repeat_interval": "Repeat interval (days)",
+          "language":        "Card language"
         },
         "data_description": {
           "max_rules":       "Format: tag:count, tag:count  —  e.g. köttfärs:2, fisk:1, lamm:1",
           "min_rules":       "Format: tag:count, tag:count  —  e.g. vegetarisk:1",
           "no_consecutive":  "Comma-separated list  —  e.g. potatis, ris, pasta, nudlar",
-          "repeat_interval": "Number of days before the same dish can be randomized again (0 = off)"
+          "repeat_interval": "Number of days before the same dish can be randomized again (0 = off)",
+          "language":        "sv = Svenska, en = English"
         }
       }
     }

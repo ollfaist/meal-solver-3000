@@ -77,10 +77,13 @@ async def _refresh_sensor(hass):
     def _load():
         return _load_dishes(), _load_tags()
     dishes, known_tags = await hass.async_add_executor_job(_load)
+    entries = hass.config_entries.async_entries(DOMAIN)
+    language = entries[0].options.get("language", "sv") if entries else "sv"
     hass.states.async_set(
         "sensor.meal_solver_matlista",
         len(dishes),
         {"dishes": dishes, "known_tags": known_tags,
+         "language": language,
          "friendly_name": "Meal Solver Dish List"},
     )
 
