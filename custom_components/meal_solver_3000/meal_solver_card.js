@@ -1,3 +1,13 @@
+const CARD_VERSION = '1.6.4';
+
+// Logged so a stale browser-cached copy is identifiable at a glance —
+// compare this against the integration version on the Integrations page.
+console.info(
+  `%c MEAL-SOLVER-CARD %c v${CARD_VERSION} `,
+  'color:#fff;background:#03a9f4;font-weight:700',
+  'color:#03a9f4;background:#fff;font-weight:700',
+);
+
 const I18N = {
   sv: {
     tab_week:      'Veckoplan',
@@ -211,6 +221,11 @@ class MealSolverCard extends HTMLElement {
   // ── Week plan ─────────────────────────────────────────────────
 
   _weekHTML() {
+    // Without the sensor there is no backend: the shuffle button would call a
+    // service that isn't registered and fail silently.
+    if (!this._hass.states['sensor.meal_solver_matlista'])
+      return `<div class="empty">${this._t('no_sensor')}</div>`;
+
     const rows = this._days().map(({dag,id,typ},i) => {
       const meal=this._meal(id), locked=this._locked(id);
       const badgeLabel = locked ? this._t('locked')

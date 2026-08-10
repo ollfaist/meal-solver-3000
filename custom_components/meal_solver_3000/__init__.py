@@ -5,6 +5,7 @@ import random
 from datetime import date, timedelta
 from pathlib import Path
 from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.start import async_at_started
 
 DOMAIN = "meal_solver_3000"
 _LOGGER = logging.getLogger(__name__)
@@ -129,6 +130,17 @@ def _build_rules(opts: dict) -> dict:
 
     # Options win, then regler.yaml. An unset field means "no constraint" —
     # never a hidden built-in rule the user didn't ask for.
+    # regler.yaml used Swedish keys before the codebase was translated. Reading
+    # only the English ones made existing files silently do nothing, so accept
+    # both and let the English spelling win where a file has each.
+    for eng, swe in (("max_per_week", "max_per_vecka"),
+                     ("min_per_week", "min_per_vecka"),
+                     ("no_consecutive", "ej_konsekutiv"),
+                     ("repeat_interval_days", "repeat_intervall_dagar"),
+                     ("max_attempts", "max_forsok")):
+        if eng not in yaml_rules and swe in yaml_rules:
+            yaml_rules[eng] = yaml_rules[swe]
+
     def _lower_keys(d):
         return {str(k).lower(): v for k, v in (d or {}).items()}
 
@@ -288,14 +300,80 @@ def _solve(locked_dishes, rules):
 
 # ── HA integration ────────────────────────────────────────────────────────────
 
-async def async_setup(hass, config):
+def _copy_card_to_www(config_dir: str) -> str:
+    """Copy the card into www/ and return the integration version."""
     import shutil
-    www_dir = Path(hass.config.config_dir) / "www"
+    here = Path(__file__).parent
+    version = json.loads((here / "manifest.json").read_text(encoding="utf-8"))["version"]
+    www_dir = Path(config_dir) / "www"
     www_dir.mkdir(exist_ok=True)
-    shutil.copy2(
-        Path(__file__).parent / "meal_solver_card.js",
-        www_dir / "meal_solver_card.js",
-    )
+    shutil.copy2(here / "meal_solver_card.js", www_dir / "meal_solver_card.js")
+    return version
+
+
+async def _async_register_card_resource(hass, version):
+    """Point the Lovelace resource at ?v=<version>.
+
+    /local/ is served with caching headers, so a fixed URL leaves browsers
+    holding a stale card indefinitely after an update. Moving the version into
+    the query string makes each release a distinct URL. Best-effort: Lovelace
+    in YAML mode has no writable resource collection, and there the user keeps
+    managing the resource by hand.
+    """
+    url = f"/local/meal_solver_card.js?v={version}"
+    try:
+        lovelace = hass.data.get("lovelace")
+        resources = getattr(lovelace, "resources", None)
+        if resources is None and isinstance(lovelace, dict):
+            resources = lovelace.get("resources")
+        if resources is None:
+            _LOGGER.warning(
+                "Meal Solver 3000: Lovelace resources unavailable (hass.data['lovelace']=%r); "
+                "add %s manually under Settings → Dashboards → Resources", lovelace, url)
+            return
+        if not hasattr(resources, "async_create_item"):
+            _LOGGER.warning(
+                "Meal Solver 3000: Lovelace is in YAML mode, so its resource list is "
+                "read-only. Add %s manually to your YAML resources.", url)
+            return
+
+        if not getattr(resources, "loaded", True):
+            await resources.async_load()
+            resources.loaded = True
+
+        ours = [
+            item for item in resources.async_items()
+            if str(item.get("url", "")).split("?")[0].endswith("/meal_solver_card.js")
+        ]
+        if not ours:
+            await resources.async_create_item({"res_type": "module", "url": url})
+            _LOGGER.warning("Meal Solver 3000: registered Lovelace resource %s", url)
+        elif ours[0].get("url") != url:
+            old = ours[0].get("url")
+            await resources.async_update_item(ours[0]["id"], {"url": url})
+            _LOGGER.warning(
+                "Meal Solver 3000: Lovelace resource updated %s → %s. "
+                "Reload the page once to pick up the new card.", old, url)
+        else:
+            _LOGGER.debug("Meal Solver 3000: Lovelace resource already at %s", url)
+    except Exception as err:  # noqa: BLE001 — never block startup over this
+        _LOGGER.warning(
+            "Meal Solver 3000: could not manage the Lovelace resource "
+            "automatically (%s). Add %s manually under Settings → Dashboards → Resources.",
+            err, url,
+        )
+
+
+async def async_setup(hass, config):
+    version = await hass.async_add_executor_job(
+        _copy_card_to_www, hass.config.config_dir)
+
+    # Deferred until HA is fully started — the Lovelace resource collection
+    # does not exist yet while integrations are still being set up.
+    async def _on_started(_hass):
+        await _async_register_card_resource(hass, version)
+
+    async_at_started(hass, _on_started)
 
     async def handle_generate_week(call):
         entries = hass.config_entries.async_entries(DOMAIN)

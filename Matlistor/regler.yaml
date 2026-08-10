@@ -1,22 +1,29 @@
-# Meal Solver 3000 — Rules
-# Controls how the week's dinners are selected
+# Meal Solver 3000 — optional rule file
+#
+# You normally do NOT need this file. Configure the rules under
+# Settings → Devices & Services → Meal Solver 3000 → Configure instead;
+# anything set there overrides what is written here.
+#
+# This file exists as a fallback for people who prefer keeping rules in YAML.
+# Everything below is commented out, so by default no rules apply.
 
-max_per_week:
-  köttfärs: 2
-  fisk: 1
+# Max occurrences per tag per week
+# max_per_week:
+#   köttfärs: 2
+#   fisk: 1
 
-min_per_week:
-  vegetarisk: 1
+# Min occurrences per tag per week
+# min_per_week:
+#   vegetarisk: 1
 
-# These tags may not appear on adjacent days
-no_consecutive:
-  - potatis
-  - ris
-  - pasta
-  - nudlar
+# Tags that may not appear on adjacent days
+# no_consecutive:
+#   - potatis
+#   - ris
+#   - pasta
 
-# The same dish cannot appear again within X days
-repeat_interval_days: 14
+# The same dish cannot reappear within X days (0 disables it)
+# repeat_interval_days: 14
 
-# Maximum number of attempts before the solver gives up and reports a conflict
-max_attempts: 1000
+# Attempts before the solver gives up and reports a conflict
+# max_attempts: 1000

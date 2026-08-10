@@ -98,9 +98,6 @@ through the card.
 3. Install **Meal Solver 3000** and restart HA
 4. Go to **Settings → Devices & Services → + Add integration** → search "Meal Solver 3000"
 5. Create required entities (see below)
-6. Add the Lovelace card resource: **Settings → Dashboards → three-dot menu → Resources**
-   - URL: `/local/meal_solver_card.js`
-   - Type: JavaScript module
 
 ## Manual installation
 
@@ -108,9 +105,20 @@ through the card.
 2. Restart HA
 3. Go to **Settings → Devices & Services → + Add integration** → search "Meal Solver 3000"
 4. Create required entities (see below)
-5. Add the Lovelace card resource: **Settings → Dashboards → three-dot menu → Resources**
-   - URL: `/local/meal_solver_card.js`
-   - Type: JavaScript module
+
+### The Lovelace card resource
+
+You don't need to add it yourself. On startup the integration copies the card
+to `/config/www/` and registers `/local/meal_solver_card.js?v=<version>` as a
+JavaScript module, updating the version on every upgrade so browsers never
+serve a stale copy.
+
+If your Lovelace is in YAML mode the resource collection isn't writable, and a
+warning in the log tells you the URL to add manually under **Settings →
+Dashboards → three-dot menu → Resources**.
+
+To check which card version a browser actually loaded, open the developer
+console — the card logs `MEAL-SOLVER-CARD v<version>` on load.
 
 ### Required entities
 
@@ -154,9 +162,13 @@ Matlistor/                (created under /config/ on first run)
   taggar.json           — tag registry (auto-generated)
 ```
 
-The card is shipped inside the integration and copied to `/config/www/` each
-time HA starts, which is why the Lovelace resource URL is `/local/meal_solver_card.js`.
-You never need to copy it by hand.
+The card lives inside the integration and is copied to `/config/www/` on every
+HA start, so it is never edited or copied by hand. `Matlistor/` in this repo
+holds empty templates only — your real data lives under `/config/Matlistor/`.
+
+`regler.yaml` also accepts the Swedish key names used before the codebase was
+translated (`max_per_vecka`, `min_per_vecka`, `ej_konsekutiv`,
+`repeat_intervall_dagar`, `max_forsok`).
 
 ## Roadmap
 
