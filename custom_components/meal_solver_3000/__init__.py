@@ -280,11 +280,14 @@ def _solve(locked_dishes, rules):
 # ── HA integration ────────────────────────────────────────────────────────────
 
 async def async_setup(hass, config):
-    hass.http.register_static_path(
-        "/meal_solver_3000/meal_solver_card.js",
-        str(Path(__file__).parent / "meal_solver_card.js"),
-        cache_headers=False,
-    )
+    from homeassistant.components.http import StaticPathConfig
+    await hass.http.async_register_static_paths([
+        StaticPathConfig(
+            "/meal_solver_3000/meal_solver_card.js",
+            str(Path(__file__).parent / "meal_solver_card.js"),
+            cache_headers=False,
+        )
+    ])
 
     async def handle_generate_week(call):
         entries = hass.config_entries.async_entries(DOMAIN)
