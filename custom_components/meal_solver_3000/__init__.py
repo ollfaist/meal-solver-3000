@@ -102,6 +102,8 @@ async def _refresh_sensor(hass):
 # ── Rule parser ───────────────────────────────────────────────────────────────
 
 def _parse_tag_rules(text: str) -> dict:
+    # Tags are stored lower-case, so rules are matched lower-case too —
+    # otherwise a rule typed as "Potatis" would silently never apply.
     result = {}
     for part in text.split(","):
         part = part.strip()
@@ -110,13 +112,13 @@ def _parse_tag_rules(text: str) -> dict:
         parts = part.split(":", 1)
         if len(parts) == 2:
             try:
-                result[parts[0].strip()] = int(parts[1].strip())
+                result[parts[0].strip().lower()] = int(parts[1].strip())
             except ValueError:
                 pass
     return result
 
 def _parse_list(text: str) -> list:
-    return [x.strip() for x in text.split(",") if x.strip()]
+    return [x.strip().lower() for x in text.split(",") if x.strip()]
 
 def _build_rules(opts: dict) -> dict:
     try:
@@ -127,12 +129,15 @@ def _build_rules(opts: dict) -> dict:
 
     # Options win, then regler.yaml. An unset field means "no constraint" —
     # never a hidden built-in rule the user didn't ask for.
+    def _lower_keys(d):
+        return {str(k).lower(): v for k, v in (d or {}).items()}
+
     max_per_week = (_parse_tag_rules(opts["max_rules"]) if "max_rules" in opts
-                    else yaml_rules.get("max_per_week", {}))
+                    else _lower_keys(yaml_rules.get("max_per_week", {})))
     min_per_week = (_parse_tag_rules(opts["min_rules"]) if "min_rules" in opts
-                    else yaml_rules.get("min_per_week", {}))
+                    else _lower_keys(yaml_rules.get("min_per_week", {})))
     no_consecutive = (_parse_list(opts["no_consecutive"]) if "no_consecutive" in opts
-                      else yaml_rules.get("no_consecutive", []))
+                      else [str(t).lower() for t in yaml_rules.get("no_consecutive", [])])
 
     return {
         "max_per_week": max_per_week,
@@ -193,19 +198,20 @@ def _tag_counts(plan, dishes):
     counts = {}
     for dish in plan.values():
         for tag in dishes.get(dish, {}).get("taggar", []):
-            counts[tag] = counts.get(tag, 0) + 1
+            t = tag.lower()
+            counts[t] = counts.get(t, 0) + 1
     return counts
 
 def _max_ok(plan, dishes, rules, new_dish):
     counts = _tag_counts(plan, dishes)
     for tag in dishes[new_dish].get("taggar", []):
-        max_count = rules.get("max_per_week", {}).get(tag)
-        if max_count is not None and counts.get(tag, 0) + 1 > max_count:
+        max_count = rules.get("max_per_week", {}).get(tag.lower())
+        if max_count is not None and counts.get(tag.lower(), 0) + 1 > max_count:
             return False
     return True
 
 def _no_consecutive_ok(plan, dishes, rules, day, new_dish):
-    no_consec = set(rules.get("no_consecutive", []))
+    no_consec = {str(t).lower() for t in rules.get("no_consecutive", [])}
     if not no_consec:
         return True
     idx = ALL_DAYS.index(day)
@@ -304,7 +310,12 @@ async def async_setup(hass, config):
                 if ts and ts.state not in ("", "unknown"):
                     locked_dishes[day] = ts.state
 
-        # Save current week to history — only if not already saved this week
+        # Archive the outgoing plan before replacing it, at most once per ISO
+        # week. The incoming plan is deliberately NOT saved here — it gets
+        # archived by the next run, once it reflects what was actually eaten.
+        # Saving it now would append an entry on every reshuffle, and each
+        # entry shrinks the candidate pool via the repeat interval until the
+        # solver can no longer find a valid week.
         already_saved = await hass.async_add_executor_job(_this_week_saved)
         if not already_saved:
             current_plan = {}
@@ -327,7 +338,6 @@ async def async_setup(hass, config):
                 {"entity_id": text_eid, "value": dish},
                 blocking=True,
             )
-        await hass.async_add_executor_job(_save_history, plan)
         _LOGGER.info("Meal Solver 3000: new weekly plan — %s", date.today())
 
     # ── Dish services ──────────────────────────────────────────────

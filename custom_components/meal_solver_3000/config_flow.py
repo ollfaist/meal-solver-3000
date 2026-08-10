@@ -40,6 +40,20 @@ def _validate_list(value: str) -> str:
     return value
 
 
+def _validate_time(value: str) -> str:
+    """Validates 'HH:MM'. Reaches async_track_time_change, so it must be sane."""
+    parts = str(value).strip().split(":")
+    if len(parts) != 2:
+        raise vol.Invalid(f"Invalid time '{value}' — use HH:MM, e.g. 17:00")
+    try:
+        hour, minute = int(parts[0]), int(parts[1])
+    except ValueError:
+        raise vol.Invalid(f"Invalid time '{value}' — use HH:MM, e.g. 17:00")
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        raise vol.Invalid(f"Time '{value}' is out of range — 00:00 to 23:59")
+    return f"{hour:02d}:{minute:02d}"
+
+
 class MealSolverConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
@@ -66,6 +80,8 @@ class MealSolverOptionsFlow(config_entries.OptionsFlow):
             try:
                 _validate_tag_rules(user_input.get("max_rules", ""))
                 _validate_tag_rules(user_input.get("min_rules", ""))
+                if "shuffle_time" in user_input:
+                    user_input["shuffle_time"] = _validate_time(user_input["shuffle_time"])
             except vol.Invalid as e:
                 errors["base"] = str(e)
             else:

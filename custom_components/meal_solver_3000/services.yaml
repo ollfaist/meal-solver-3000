@@ -16,8 +16,11 @@ add_dish:
       description: List of tags
       example: ["fisk", "potatis"]
     locked_day:
-      description: Day the dish is always served (optional)
+      description: Weekday the dish is always served, in Swedish (optional)
       example: "fredag"
+    requires:
+      description: Another dish that must be in the same week (optional)
+      example: "Spagetti & Köttfärssås"
 
 update_dish:
   name: Update dish
@@ -36,7 +39,10 @@ update_dish:
       description: List of tags
       example: ["fisk", "ris"]
     locked_day:
-      description: Day the dish is always served (optional)
+      description: Weekday the dish is always served, in Swedish (optional)
+      example: ""
+    requires:
+      description: Another dish that must be in the same week (optional)
       example: ""
 
 remove_dish:
@@ -46,3 +52,30 @@ remove_dish:
     name:
       description: Name of the dish
       example: "Salmon with potatoes"
+
+create_tag:
+  name: Create tag
+  description: Adds a new tag to the registry. Stored lower-case.
+  fields:
+    name:
+      description: Name of the tag
+      example: "fisk"
+
+rename_tag:
+  name: Rename tag
+  description: Renames a tag in the registry and in every dish using it.
+  fields:
+    old_name:
+      description: Current name of the tag
+      example: "fisk"
+    new_name:
+      description: New name of the tag
+      example: "skaldjur"
+
+remove_tag:
+  name: Remove tag
+  description: Removes a tag from the registry and from every dish using it.
+  fields:
+    name:
+      description: Name of the tag
+      example: "fisk"

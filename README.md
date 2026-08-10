@@ -58,7 +58,7 @@ Go to **Settings → Devices & Services → Meal Solver 3000 → Configure**:
 | Shuffle day | `sunday` | Weekday the automatic shuffle runs |
 | Shuffle time | `17:00` | Time of day for the automatic shuffle, `HH:MM` |
 
-The three rule fields are empty by default and render empty in the UI — the values shown above are examples, not preset rules. Leaving a field blank disables that rule entirely.
+The three rule fields are empty by default and render empty in the UI — the values shown above are examples, not preset rules. Leaving a field blank disables that rule entirely. Tag names in rules are matched case-insensitively.
 
 ## matratter.yaml format
 
