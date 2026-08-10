@@ -1,0 +1,6 @@
+{
+  "name": "Meal Solver 3000",
+  "content_in_root": false,
+  "homeassistant": "2023.1.0",
+  "filename": "meal_solver_card.js"
+}
