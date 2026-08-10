@@ -505,22 +505,95 @@ class MealSolverCard extends HTMLElement {
 
   // ── Week plan inline edit ─────────────────────────────────────
 
-  _startInlineEdit(id,currentMeal) {
-    this._editingDay=id;
-    const row=this.shadowRoot.querySelector(`.row[data-id="${id}"]`); if(!row) return;
-    row.querySelector('.dish').innerHTML=`<input class="edit-input" type="text" value="${currentMeal}">`;
-    row.querySelector('.actions').innerHTML=`<button class="save-btn">Save</button>`;
-    const input=row.querySelector('.edit-input'); input.focus(); input.select();
-    const save=()=>{
-      const val=input.value.trim();
-      if(val) this._hass.callService('input_text','set_value',{entity_id:`input_text.${id}_middag`,value:val});
-      this._editingDay=null;
+  _startInlineEdit(id, currentMeal) {
+    this._editingDay = id;
+    const row = this.shadowRoot.querySelector(`.row[data-id="${id}"]`);
+    if (!row) return;
+
+    const dayInfo = this._days().find(d => d.id === id);
+    const dayType = dayInfo?.typ || 'vardag';
+
+    row.querySelector('.dish').innerHTML =
+      `<div class="ac-wrap">
+         <input class="edit-input" type="text" value="${currentMeal}" autocomplete="off">
+         <div class="ac-list" id="ac-list-${id}"></div>
+       </div>`;
+    row.querySelector('.actions').innerHTML = `<button class="save-btn">${this._t('save')}</button>`;
+
+    const input = row.querySelector('.edit-input');
+    const acList = row.querySelector(`#ac-list-${id}`);
+    input.focus(); input.select();
+
+    const dishes = this._dishes();
+    let activeIdx = -1;
+
+    const showSuggestions = (q) => {
+      const query = q.toLowerCase().replace(/\s+/g, ' ');
+      if (!query) { acList.innerHTML = ''; acList.style.display = 'none'; activeIdx = -1; return; }
+      const matches = Object.keys(dishes)
+        .filter(n => n.toLowerCase().includes(query))
+        .sort((a, b) => {
+          const aType = dishes[a].dagar;
+          const bType = dishes[b].dagar;
+          const aMatch = aType === dayType || aType === 'båda';
+          const bMatch = bType === dayType || bType === 'båda';
+          if (aMatch !== bMatch) return aMatch ? -1 : 1;
+          return a.localeCompare(b, 'sv');
+        })
+        .slice(0, 8);
+      if (!matches.length) { acList.innerHTML = ''; acList.style.display = 'none'; activeIdx = -1; return; }
+      activeIdx = -1;
+      acList.innerHTML = matches.map((n, i) =>
+        `<div class="ac-item" data-name="${n}" data-idx="${i}">${n}</div>`
+      ).join('');
+      acList.style.display = 'block';
+      acList.querySelectorAll('.ac-item').forEach(item => {
+        item.addEventListener('mousedown', ev => {
+          ev.preventDefault();
+          input.value = item.dataset.name;
+          acList.innerHTML = ''; acList.style.display = 'none';
+          save();
+        });
+      });
     };
-    row.querySelector('.save-btn').addEventListener('click',save);
-    input.addEventListener('keydown',ev=>{
-      if(ev.key==='Enter') save();
-      if(ev.key==='Escape'){this._editingDay=null;this._render();}
+
+    const setActive = (idx) => {
+      const items = acList.querySelectorAll('.ac-item');
+      items.forEach(i => i.classList.remove('ac-active'));
+      if (idx >= 0 && idx < items.length) { items[idx].classList.add('ac-active'); activeIdx = idx; }
+      else activeIdx = -1;
+    };
+
+    const save = () => {
+      const val = input.value.trim();
+      if (val) this._hass.callService('input_text', 'set_value', { entity_id: `input_text.${id}_middag`, value: val });
+      this._editingDay = null;
+    };
+
+    input.addEventListener('input', () => showSuggestions(input.value));
+    input.addEventListener('keydown', ev => {
+      const items = acList.querySelectorAll('.ac-item');
+      if (ev.key === 'ArrowDown') {
+        ev.preventDefault(); setActive(Math.min(activeIdx + 1, items.length - 1));
+      } else if (ev.key === 'ArrowUp') {
+        ev.preventDefault(); setActive(Math.max(activeIdx - 1, 0));
+      } else if (ev.key === 'Enter') {
+        if (activeIdx >= 0 && items[activeIdx]) input.value = items[activeIdx].dataset.name;
+        acList.innerHTML = ''; acList.style.display = 'none';
+        save();
+      } else if (ev.key === 'Escape') {
+        if (acList.style.display === 'block') {
+          acList.innerHTML = ''; acList.style.display = 'none';
+        } else {
+          this._editingDay = null; this._render();
+        }
+      }
     });
+    input.addEventListener('blur', () => {
+      setTimeout(() => { acList.innerHTML = ''; acList.style.display = 'none'; }, 150);
+    });
+
+    row.querySelector('.save-btn').addEventListener('click', save);
   }
 
   // ── CSS ───────────────────────────────────────────────────────
@@ -550,7 +623,11 @@ class MealSolverCard extends HTMLElement {
     .icon-btn.locked{color:#854F0B}
     .footer{padding:8px 16px;display:flex;align-items:center;justify-content:space-between}
     .footer span{font-size:11px;color:var(--secondary-text-color)}
-    .edit-input{flex:1;font-size:13px;padding:3px 6px;border:0.5px solid var(--primary-color,#03a9f4);border-radius:6px;background:var(--secondary-background-color);color:var(--primary-text-color);min-width:0}
+    .ac-wrap{flex:1;position:relative;min-width:0}
+    .edit-input{width:100%;box-sizing:border-box;font-size:13px;padding:3px 6px;border:0.5px solid var(--primary-color,#03a9f4);border-radius:6px;background:var(--secondary-background-color);color:var(--primary-text-color)}
+    .ac-list{display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:var(--ha-card-background,#fff);border:0.5px solid var(--divider-color,#e0e0e0);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:999;overflow:hidden;max-height:220px;overflow-y:auto}
+    .ac-item{padding:8px 12px;font-size:13px;cursor:pointer;color:var(--primary-text-color)}
+    .ac-item:hover,.ac-item.ac-active{background:var(--secondary-background-color)}
     .save-btn{font-size:11px;padding:4px 9px;border:none;background:var(--primary-color,#03a9f4);color:#fff;border-radius:6px;cursor:pointer}
     .empty{padding:24px 16px;text-align:center;color:var(--secondary-text-color);font-size:13px}
     .wrap{padding:14px 16px;display:flex;flex-direction:column;gap:12px}
