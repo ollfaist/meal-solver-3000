@@ -4,12 +4,17 @@ from homeassistant.core import callback
 
 DOMAIN = "meal_solver_3000"
 
+WEEKDAYS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
+
 DEFAULTS = {
-    "max_rules":       "köttfärs:2, fisk:1",
-    "min_rules":       "vegetarisk:1",
-    "no_consecutive":  "potatis, ris, pasta, nudlar",
-    "repeat_interval": 14,
-    "language":        "sv",
+    "max_rules":        "köttfärs:2, fisk:1",
+    "min_rules":        "vegetarisk:1",
+    "no_consecutive":   "potatis, ris, pasta, nudlar",
+    "repeat_interval":  14,
+    "language":         "sv",
+    "auto_shuffle":     True,
+    "shuffle_weekday":  "sunday",
+    "shuffle_time":     "17:00",
 }
 
 
@@ -87,6 +92,18 @@ class MealSolverOptionsFlow(config_entries.OptionsFlow):
             vol.Optional("language",
                          default=opts.get("language", DEFAULTS["language"])):
                 vol.In(["sv", "en"]),
+
+            vol.Optional("auto_shuffle",
+                         default=opts.get("auto_shuffle", DEFAULTS["auto_shuffle"])):
+                bool,
+
+            vol.Optional("shuffle_weekday",
+                         default=opts.get("shuffle_weekday", DEFAULTS["shuffle_weekday"])):
+                vol.In(WEEKDAYS),
+
+            vol.Optional("shuffle_time",
+                         default=opts.get("shuffle_time", DEFAULTS["shuffle_time"])):
+                str,
         })
 
         return self.async_show_form(step_id="init", data_schema=schema, errors=errors)

@@ -4,6 +4,7 @@ import json
 import random
 from datetime import date, timedelta
 from pathlib import Path
+from homeassistant.helpers.event import async_track_time_change
 
 DOMAIN = "meal_solver_3000"
 _LOGGER = logging.getLogger(__name__)
@@ -36,6 +37,11 @@ _OPTION_DEFAULTS = {
     "min_rules":       "vegetarisk:1",
     "no_consecutive":  "potatis, ris, pasta, nudlar",
     "repeat_interval": 14,
+}
+
+_WEEKDAY_TO_INT = {
+    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+    "friday": 4, "saturday": 5, "sunday": 6,
 }
 
 
@@ -85,13 +91,19 @@ async def _refresh_sensor(hass):
         return _load_dishes(), _load_tags()
     dishes, known_tags = await hass.async_add_executor_job(_load)
     entries = hass.config_entries.async_entries(DOMAIN)
-    language = entries[0].options.get("language", "sv") if entries else "sv"
+    opts = entries[0].options if entries else {}
     hass.states.async_set(
         "sensor.meal_solver_matlista",
         len(dishes),
-        {"dishes": dishes, "known_tags": known_tags,
-         "language": language,
-         "friendly_name": "Meal Solver Dish List"},
+        {
+            "dishes":          dishes,
+            "known_tags":      known_tags,
+            "language":        opts.get("language", "sv"),
+            "auto_shuffle":    opts.get("auto_shuffle", True),
+            "shuffle_weekday": opts.get("shuffle_weekday", "sunday"),
+            "shuffle_time":    opts.get("shuffle_time", "17:00"),
+            "friendly_name":   "Meal Solver Dish List",
+        },
     )
 
 
@@ -440,11 +452,44 @@ async def async_setup(hass, config):
     return True
 
 
+def _register_auto_shuffle(hass, entry):
+    """Set up (or cancel) the scheduled auto-shuffle time listener."""
+    store = hass.data.setdefault(DOMAIN, {})
+
+    # Cancel previous listener for this entry if any
+    if entry.entry_id in store:
+        store.pop(entry.entry_id)()
+
+    opts = entry.options
+    if not opts.get("auto_shuffle", True):
+        return
+
+    shuffle_time    = opts.get("shuffle_time", "17:00")
+    shuffle_weekday = opts.get("shuffle_weekday", "sunday")
+    try:
+        h, m = [int(x) for x in shuffle_time.split(":")]
+    except Exception:
+        h, m = 17, 0
+    target_weekday = _WEEKDAY_TO_INT.get(shuffle_weekday, 6)
+
+    async def _scheduled_shuffle(now):
+        if now.weekday() != target_weekday:
+            return
+        _LOGGER.info("Meal Solver 3000: auto-shuffle triggered (%s %s)", shuffle_weekday, shuffle_time)
+        await hass.services.async_call(DOMAIN, "generate_week", {})
+
+    store[entry.entry_id] = async_track_time_change(hass, _scheduled_shuffle, hour=h, minute=m, second=0)
+
+
 async def async_setup_entry(hass, entry):
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
+    _register_auto_shuffle(hass, entry)
     return True
 
 async def async_unload_entry(hass, entry):
+    store = hass.data.get(DOMAIN, {})
+    if entry.entry_id in store:
+        store.pop(entry.entry_id)()
     return True
 
 async def _async_reload_entry(hass, entry):

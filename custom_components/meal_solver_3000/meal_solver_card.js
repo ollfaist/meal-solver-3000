@@ -6,6 +6,8 @@ const I18N = {
     shuffle:       'Slumpa',
     this_week:     'Veckans middagar',
     sunday_auto:   'Söndag 17:00',
+    auto_off:      'Manuell slumpning',
+    weekday_names: ['Måndag','Tisdag','Onsdag','Torsdag','Fredag','Lördag','Söndag'],
     locked:        'låst',
     loading:       'Laddar matlista…',
     category:      'Kategori',
@@ -50,6 +52,8 @@ const I18N = {
     shuffle:       'Shuffle',
     this_week:     "This week's dinners",
     sunday_auto:   'Sunday 17:00',
+    auto_off:      'Manual shuffle',
+    weekday_names: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],
     locked:        'locked',
     loading:       'Loading dish list…',
     category:      'Category',
@@ -110,6 +114,19 @@ class MealSolverCard extends HTMLElement {
   }
 
   _t(key) { return (I18N[this._lang()] || I18N.sv)[key] || key; }
+
+  _scheduleLabel() {
+    const s = this._hass?.states['sensor.meal_solver_matlista'];
+    const auto = s?.attributes?.auto_shuffle;
+    if (auto === false) return this._t('auto_off');
+    const weekday  = s?.attributes?.shuffle_weekday || 'sunday';
+    const time     = s?.attributes?.shuffle_time    || '17:00';
+    const dayOrder = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    const dayNames = this._t('weekday_names');
+    const idx      = dayOrder.indexOf(weekday);
+    const dayName  = (Array.isArray(dayNames) && idx >= 0) ? dayNames[idx] : weekday;
+    return `${dayName} ${time}`;
+  }
 
   set hass(hass) {
     this._hass = hass;
@@ -223,7 +240,7 @@ class MealSolverCard extends HTMLElement {
         <button class="btn-shuffle" id="shuffle-btn">${this._iRefresh()} ${this._t('shuffle')}</button>
       </div>
       <div class="hdiv"></div>${rows}<div class="hdiv"></div>
-      <div class="footer"><span>Meal Solver 3000</span><span>${this._t('sunday_auto')}</span></div>`;
+      <div class="footer"><span>Meal Solver 3000</span><span>${this._scheduleLabel()}</span></div>`;
   }
 
   // ── Dish list ─────────────────────────────────────────────────
