@@ -142,15 +142,16 @@ class MealSolverCard extends HTMLElement {
 
   _allTags() {
     const s = this._hass.states['sensor.meal_solver_matlista'];
-    const known = s ? (s.attributes.known_tags || []) : [];
-    // fallback if sensor does not have known_tags yet
-    if (known.length) return known;
-    const defaults = ['köttfärs','nöt','fläsk','fågel','fisk','vegetarisk','korv','lamm',
-                      'potatis','ris','pasta','nudlar'];
-    const extra = new Set();
-    for (const d of Object.values(this._dishes()))
-      for (const t of (d.taggar||[])) extra.add(t);
-    return [...new Set([...defaults,...extra])];
+    // Only fall back to defaults if sensor hasn't loaded yet (no attribute at all)
+    if (!s || s.attributes.known_tags === undefined) {
+      const defaults = ['köttfärs','nöt','fläsk','fågel','fisk','vegetarisk','korv','lamm',
+                        'potatis','ris','pasta','nudlar'];
+      const extra = new Set();
+      for (const d of Object.values(this._dishes()))
+        for (const t of (d.taggar||[])) extra.add(t);
+      return [...new Set([...defaults,...extra])];
+    }
+    return s.attributes.known_tags;
   }
 
   _requiresOpts(selected) {
