@@ -7,6 +7,7 @@ const I18N = {
     this_week:     'Veckans middagar',
     sunday_auto:   'Söndag 17:00',
     auto_off:      'Manuell slumpning',
+    no_sensor:     'Integrationen är inte laddad. Lägg till "Meal Solver 3000" under Inställningar → Enheter och tjänster.',
     weekday_names: ['Måndag','Tisdag','Onsdag','Torsdag','Fredag','Lördag','Söndag'],
     locked:        'låst',
     loading:       'Laddar matlista…',
@@ -53,6 +54,7 @@ const I18N = {
     this_week:     "This week's dinners",
     sunday_auto:   'Sunday 17:00',
     auto_off:      'Manual shuffle',
+    no_sensor:     'Integration not loaded. Add "Meal Solver 3000" under Settings → Devices & Services.',
     weekday_names: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],
     locked:        'locked',
     loading:       'Loading dish list…',
@@ -158,17 +160,11 @@ class MealSolverCard extends HTMLElement {
   }
 
   _allTags() {
+    // The sensor is the only source of truth. Never invent tags — a hardcoded
+    // fallback renders rows whose delete button can't work, since there is no
+    // backend behind them.
     const s = this._hass.states['sensor.meal_solver_matlista'];
-    // Only fall back to defaults if sensor hasn't loaded yet (no attribute at all)
-    if (!s || s.attributes.known_tags === undefined) {
-      const defaults = ['köttfärs','nöt','fläsk','fågel','fisk','vegetarisk','korv','lamm',
-                        'potatis','ris','pasta','nudlar'];
-      const extra = new Set();
-      for (const d of Object.values(this._dishes()))
-        for (const t of (d.taggar||[])) extra.add(t);
-      return [...new Set([...defaults,...extra])];
-    }
-    return s.attributes.known_tags;
+    return s?.attributes?.known_tags ?? [];
   }
 
   _requiresOpts(selected) {
@@ -249,7 +245,7 @@ class MealSolverCard extends HTMLElement {
     if (this._editing) return this._editFormHTML();
     const dishes = this._dishes();
     if (!this._hass.states['sensor.meal_solver_matlista'])
-      return `<div class="empty">${this._t('loading')}</div>`;
+      return `<div class="empty">${this._t('no_sensor')}</div>`;
 
     const cnt = { vardag:0, helg:0, båda:0 };
     for (const d of Object.values(dishes)) cnt[d.dagar] = (cnt[d.dagar]||0) + 1;
@@ -328,6 +324,8 @@ class MealSolverCard extends HTMLElement {
 
   _tagsHTML() {
     if (this._editingTag) return this._tagEditFormHTML();
+    if (!this._hass.states['sensor.meal_solver_matlista'])
+      return `<div class="empty">${this._t('no_sensor')}</div>`;
 
     const cnt = this._tagCounts();
     const dishes = this._dishes();
