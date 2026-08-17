@@ -6,7 +6,7 @@ Smart weekly dinner planner for Home Assistant. Randomizes 7 dinners per week us
 
 - Randomizes Mon–Sun with separate dish pools for weekdays and weekends
 - **Tag rules** — optional max/min per tag per week (e.g. max 2 minced meat, min 1 vegetarian)
-- **No consecutive side dish** — optionally stop tags like potato/rice/pasta from landing two days in a row
+- **No consecutive side dish** — stops the same side being forced two days running. These tags name interchangeable sides, so a dish tagged both `pasta` and `potatis` can be cooked either way and never forces a repeat; only two dishes that each offer exactly one side, and the same one, clash
 - **Repeat interval** — a dish can't reappear until after X days (default 14, set 0 to disable)
 - **Auto-shuffle** — generates a new plan on a configurable weekday and time, or turn it off for manual-only
 - **Locked days** — lock any day so it's skipped when reshuffling
@@ -51,7 +51,7 @@ Go to **Settings → Devices & Services → Meal Solver 3000 → Configure**:
 |--------|---------|-------------|
 | Max per week | *empty* | Max occurrences per tag per week. Format `tag:count`, e.g. `köttfärs:2, fisk:1`. Empty = no upper limit |
 | Min per week | *empty* | Min occurrences per tag per week. Format `tag:count`, e.g. `vegetarisk:1`. Empty = no requirement |
-| No consecutive | *empty* | Comma-separated tags that can't appear two days in a row, e.g. `potatis, ris, pasta`. Empty = allow anything |
+| No consecutive | *empty* | Comma-separated tags naming interchangeable side dishes, e.g. `potatis, ris, pasta`. Two dishes clash only if each offers exactly one of these and it is the same one — a dish tagged with several can be cooked any of those ways. Empty = allow anything |
 | Repeat interval | `14` | Days before the same dish can reappear. `0` disables it |
 | Card language | `sv` | Language for the Lovelace card — `sv` or `en` |
 | Auto-shuffle | `on` | Whether to generate a new plan automatically. Turn off for manual-only |

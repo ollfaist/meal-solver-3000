@@ -223,20 +223,27 @@ def _max_ok(plan, dishes, rules, new_dish):
     return True
 
 def _no_consecutive_ok(plan, dishes, rules, day, new_dish):
-    """A dish must not share a no-consecutive tag with the day before or after.
+    """A dish must not force the same side two days running.
 
-    Both neighbours matter. Locked days are placed into the plan before the
+    These tags name interchangeable sides, so a dish carrying several of them
+    can be cooked with any one of them. A clash therefore exists only when
+    neither day has a choice: both dishes offer exactly one side and it is the
+    same one. [pasta] beside [pasta, potatis] is fine — the second can be made
+    with potatis; [potatis, ris] beside [potatis, ris] is fine too, one takes
+    potatis and the other ris.
+
+    Both neighbours are checked. Locked days are placed into the plan before the
     solver starts filling, so the day *after* the one being filled can already
-    hold a dish. Looking only backwards let a clash through whenever the
-    conflict sat on the following day — which is the normal case when every day
-    but one is locked, and Monday was never checked at all.
+    hold a dish — with every day but one locked, that is exactly where the clash
+    sits, and Monday used to escape the check entirely for want of a previous
+    day.
     """
     no_consec = {str(t).lower() for t in rules.get("no_consecutive", [])}
     if not no_consec:
         return True
     new_rel = {t.lower() for t in dishes[new_dish].get("taggar", [])} & no_consec
-    if not new_rel:
-        return True
+    if len(new_rel) != 1:
+        return True   # no relevant side, or a free choice between several
 
     idx = ALL_DAYS.index(day)
     for n_idx in (idx - 1, idx + 1):
@@ -246,10 +253,7 @@ def _no_consecutive_ok(plan, dishes, rules, day, new_dish):
         if not neighbour or neighbour not in dishes:
             continue
         nb_rel = {t.lower() for t in dishes[neighbour].get("taggar", [])} & no_consec
-        # Any tag in common is a clash. The old test required both sides to
-        # have exactly one relevant tag and the sets to be identical, so a dish
-        # tagged [pasta, potatis] sailed past a [pasta] neighbour.
-        if new_rel & nb_rel:
+        if len(nb_rel) == 1 and nb_rel == new_rel:
             return False
     return True
 
