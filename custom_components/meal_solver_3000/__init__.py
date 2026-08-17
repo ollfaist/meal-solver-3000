@@ -223,20 +223,35 @@ def _max_ok(plan, dishes, rules, new_dish):
     return True
 
 def _no_consecutive_ok(plan, dishes, rules, day, new_dish):
+    """A dish must not share a no-consecutive tag with the day before or after.
+
+    Both neighbours matter. Locked days are placed into the plan before the
+    solver starts filling, so the day *after* the one being filled can already
+    hold a dish. Looking only backwards let a clash through whenever the
+    conflict sat on the following day — which is the normal case when every day
+    but one is locked, and Monday was never checked at all.
+    """
     no_consec = {str(t).lower() for t in rules.get("no_consecutive", [])}
     if not no_consec:
         return True
+    new_rel = {t.lower() for t in dishes[new_dish].get("taggar", [])} & no_consec
+    if not new_rel:
+        return True
+
     idx = ALL_DAYS.index(day)
-    if idx == 0:
-        return True
-    previous = plan.get(ALL_DAYS[idx - 1])
-    if not previous or previous not in dishes:
-        return True
-    new_rel  = {t.lower() for t in dishes[new_dish].get("taggar", [])} & no_consec
-    prev_rel = {t.lower() for t in dishes[previous].get("taggar", [])} & no_consec
-    if not new_rel or not prev_rel:
-        return True
-    return not (new_rel == prev_rel and len(new_rel) == 1)
+    for n_idx in (idx - 1, idx + 1):
+        if not 0 <= n_idx < len(ALL_DAYS):
+            continue
+        neighbour = plan.get(ALL_DAYS[n_idx])
+        if not neighbour or neighbour not in dishes:
+            continue
+        nb_rel = {t.lower() for t in dishes[neighbour].get("taggar", [])} & no_consec
+        # Any tag in common is a clash. The old test required both sides to
+        # have exactly one relevant tag and the sets to be identical, so a dish
+        # tagged [pasta, potatis] sailed past a [pasta] neighbour.
+        if new_rel & nb_rel:
+            return False
+    return True
 
 def _min_ok(plan, dishes, rules):
     counts = _tag_counts(plan, dishes)
